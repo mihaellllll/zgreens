@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { CROP_RECIPES, getCurrentPhase } from '../data/cropData';
+import { fetchRegals } from '../api/growRack';
 import { RefreshIcon } from '../components/Icons';
 
 // ─── Task generation from regal/tray data ────────────────────────────────────
@@ -14,13 +15,9 @@ const TASK_META = {
   ready:    { label: 'Uberi Usjev',               icon: '✂️',  typeColor: '#15803d', typeBg: '#f0fdf4' },
 };
 
-function generateTasks() {
+function generateTasks(regals) {
+  if (!regals) return [];
   const tasks = [];
-  let regals;
-  try {
-    regals = JSON.parse(localStorage.getItem('zgreens_regals_v1'))
-          || Array(4).fill(null).map(() => Array(16).fill(null));
-  } catch { return []; }
 
   regals.forEach((regal, ri) => {
     if (!Array.isArray(regal)) return;
@@ -84,7 +81,6 @@ function TaskBubble({ task }) {
   const bgColor     = isNext  ? '#f0fdf4' : '#fffbeb';
   const accentColor = isNext  ? '#16a34a' : '#d97706';
 
-  const today = new Date(); today.setHours(0,0,0,0);
   const isOverdue = task.daysUntil < 0;
   const isToday   = task.daysUntil === 0;
 
@@ -212,10 +208,6 @@ function Legend() {
 // ─── Main Tasks page ──────────────────────────────────────────────────────────
 
 function groupByDate(tasks) {
-  const today    = new Date(); today.setHours(0,0,0,0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
-  const nextWeek = new Date(today); nextWeek.setDate(today.getDate()+7);
-
   const overdue   = tasks.filter(t => t.daysUntil < 0);
   const todayT    = tasks.filter(t => t.daysUntil === 0);
   const tomorrowT = tasks.filter(t => t.daysUntil === 1);
@@ -254,19 +246,36 @@ function Section({ title, emoji, tasks, emptyMsg, accent }) {
 }
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks]   = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Regenerate tasks on mount and on storage events
-  const refresh = () => setTasks(generateTasks());
+  const refresh = async () => {
+    try {
+      const regals = await fetchRegals();
+      setTasks(generateTasks(regals));
+    } catch {
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     refresh();
-    // Re-read if user switches tabs (storage may have changed)
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
   }, []);
 
+  if (loading) return (
+    <div className="p-10">
+      <div className="page-header">
+        <h2 className="page-title">Zadaci</h2>
+      </div>
+      <p className="text-gray-400 text-base">Učitavanje...</p>
+    </div>
+  );
+
   const { overdue, todayT, tomorrowT, thisWeek, later } = groupByDate(tasks);
-  const totalActive = tasks.filter(t => t.priority === 'next').length;
 
   if (tasks.length === 0) {
     return (

@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Modal from '../components/Modal';
 import { CROP_RECIPES, getCurrentPhase } from '../data/cropData';
-import { deductSeeds, getSeedAmount } from '../data/storageUtils';
+import {
+  fetchRegals, plantTray, clearTray, fetchSeeds,
+  fetchHarvests, createHarvest, deleteAllTrays, deleteAllHarvests,
+  upsertTray, setSeeds,
+} from '../api/growRack';
 import { BackIcon, CheckIcon, XIcon, DownloadIcon, UploadIcon, ScissorsIcon } from '../components/Icons';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -16,22 +20,9 @@ const REGAL_COLORS = [
   { accent: '#9333ea', dark: '#2e1065', border: '#7e22ce', gradient: 'linear-gradient(160deg,#1a0a3d,#110728)' },
 ];
 const FUNKY_FONT = "'Trebuchet MS', 'Comic Sans MS', 'Segoe UI', cursive";
-const REGALS_KEY   = 'zgreens_regals_v1';
 
 function emptyRegals() {
   return Array(4).fill(null).map(() => Array(16).fill(null));
-}
-
-function loadRegals() {
-  try {
-    const saved = localStorage.getItem(REGALS_KEY);
-    if (saved) return JSON.parse(saved);
-    // Migrate from old single-rack format
-    const old = localStorage.getItem('zgreens_shelf_v1');
-    const r = emptyRegals();
-    if (old) { r[0] = JSON.parse(old); localStorage.removeItem('zgreens_shelf_v1'); }
-    return r;
-  } catch { return emptyRegals(); }
 }
 
 // ─── Plant SVG (front-view tray with growing plants) ─────────────────────────
@@ -181,14 +172,14 @@ function GrowLight({ label }) {
 
 // ─── Planting Form ────────────────────────────────────────────────────────────
 
-function PlantingForm({ onPlant, onClose }) {
+function PlantingForm({ seedAmounts, onPlant, onClose }) {
   const [cropKey, setCropKey] = useState('');
   const [dayIdx,  setDayIdx]  = useState(0);
   const [notes,   setNotes]   = useState('');
 
   const crop  = CROP_RECIPES.find(c => c.key === cropKey);
   const phase = crop?.phases[dayIdx];
-  const stock = cropKey ? getSeedAmount(cropKey) : 0;
+  const stock = seedAmounts?.[cropKey] ?? 0;
   const needed = crop?.seedsPerTray || 0;
   const hasEnough = stock >= needed;
 
@@ -199,7 +190,6 @@ function PlantingForm({ onPlant, onClose }) {
     const planted = new Date(today);
     planted.setDate(planted.getDate() - (phase.day - 1));
     onPlant({ cropKey: crop.key, plantedDate: planted.toISOString().slice(0,10), notes });
-    deductSeeds(crop.key, crop.seedsPerTray);
   };
 
   return (
@@ -209,7 +199,7 @@ function PlantingForm({ onPlant, onClose }) {
         <label className="block text-sm font-medium text-gray-700 mb-2">Vrsta usjeva *</label>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
           {CROP_RECIPES.map(r => {
-            const s = getSeedAmount(r.key);
+            const s = seedAmounts?.[r.key] ?? 0;
             const ok = s >= r.seedsPerTray;
             return (
               <button key={r.key} type="button" onClick={() => { setCropKey(r.key); setDayIdx(0); }}
@@ -303,7 +293,7 @@ const STAGE_DESC = {
   growing:'Rast — razvoj listova', ready:'Spremo za berbu!',
 };
 
-function TrayDetail({ tray, regal, shelf, trayNum, onClear, onClose }) {
+function TrayDetail({ tray, regal, shelf, trayNum, onClear, onHarvest, onClose }) {
   const [harvesting,   setHarvesting]   = useState(false);
   const [yieldG,       setYieldG]       = useState('');
   const [confirmFail,  setConfirmFail]  = useState(false);
@@ -313,17 +303,8 @@ function TrayDetail({ tray, regal, shelf, trayNum, onClear, onClose }) {
   if (!crop || !phaseInfo) return null;
   const { phase, phaseIdx, daysElapsed, daysUntilHarvest, isOverdue, isToday } = phaseInfo;
 
-  const handleHarvest = () => {
-    const g = Number(yieldG) || 0;
-    try {
-      const harvests = JSON.parse(localStorage.getItem('zgreens_harvests') || '[]');
-      harvests.push({
-        cropKey: tray.cropKey, cropName: crop.name, yieldG: g,
-        date: new Date().toISOString().slice(0, 10), regal, shelf, tray: trayNum,
-      });
-      localStorage.setItem('zgreens_harvests', JSON.stringify(harvests));
-    } catch {}
-    onClear();
+  const handleHarvestSubmit = () => {
+    onHarvest(Number(yieldG) || 0);
   };
 
   return (
@@ -405,7 +386,7 @@ function TrayDetail({ tray, regal, shelf, trayNum, onClear, onClose }) {
             <span style={{ fontSize:'14px', color:'#6b7280' }}>g</span>
           </div>
           <div style={{ display:'flex', gap:'8px' }}>
-            <button onClick={handleHarvest} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'10px', borderRadius:'10px', fontWeight:700, fontSize:'14px', background:'#16a34a', color:'#fff', border:'none', cursor:'pointer' }}>
+            <button onClick={handleHarvestSubmit} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', padding:'10px', borderRadius:'10px', fontWeight:700, fontSize:'14px', background:'#16a34a', color:'#fff', border:'none', cursor:'pointer' }}>
               <CheckIcon size={16} color="#fff" /> Berba
             </button>
             <button onClick={() => setHarvesting(false)} style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'42px', height:'42px', borderRadius:'10px', background:'#fff', border:'1.5px solid #e5e7eb', cursor:'pointer' }}>
@@ -450,7 +431,6 @@ function RegalCard({ regals, regalIdx, onClick }) {
   const cropKeys = [...new Set(trays.filter(Boolean).map(t => t.cropKey))];
   const crops    = cropKeys.map(k => CROP_RECIPES.find(c => c.key === k)).filter(Boolean);
 
-  // Progress — any overdue?
   const hasOverdue = trays.some(t => {
     if (!t) return false;
     const c = CROP_RECIPES.find(r => r.key === t.cropKey);
@@ -527,7 +507,7 @@ function RegalCard({ regals, regalIdx, onClick }) {
 
 // ─── Shelf View (inside a regal) ──────────────────────────────────────────────
 
-function ShelfView({ regals, regalIdx, onUpdate, onBack, openSlot, onOpenSlotConsumed }) {
+function ShelfView({ regals, regalIdx, seedAmounts, onPlant, onClearSlot, onHarvest, onBack, openSlot, onOpenSlotConsumed }) {
   const [plantingSlot, setPlantingSlot] = useState(null);
   const [viewingSlot,  setViewingSlot]  = useState(null);
 
@@ -541,17 +521,28 @@ function ShelfView({ regals, regalIdx, onUpdate, onBack, openSlot, onOpenSlotCon
     }
   }, [openSlot, trays]);
 
-  const handlePlant = (slotIdx, data) => {
-    const next = regals.map(r => [...r]);
-    next[regalIdx][slotIdx] = data;
-    onUpdate(next);
+  const handlePlant = async (slotIdx, data) => {
+    await onPlant(regalIdx, slotIdx, data);
     setPlantingSlot(null);
   };
 
-  const clearSlot = slotIdx => {
-    const next = regals.map(r => [...r]);
-    next[regalIdx][slotIdx] = null;
-    onUpdate(next);
+  const handleClearSlot = async (slotIdx) => {
+    await onClearSlot(regalIdx, slotIdx);
+    setViewingSlot(null);
+  };
+
+  const handleHarvest = async (slotIdx, tray, yieldG) => {
+    const crop = CROP_RECIPES.find(c => c.key === tray.cropKey);
+    const payload = {
+      cropKey:  tray.cropKey,
+      cropName: crop?.name ?? tray.cropKey,
+      yieldG,
+      date:  new Date().toISOString().slice(0, 10),
+      regal: regalIdx + 1,
+      shelf: Math.floor(slotIdx / 4) + 1,
+      tray:  (slotIdx % 4) + 1,
+    };
+    await onHarvest(regalIdx, slotIdx, payload);
     setViewingSlot(null);
   };
 
@@ -619,7 +610,11 @@ function ShelfView({ regals, regalIdx, onUpdate, onBack, openSlot, onOpenSlotCon
       {/* Planting modal */}
       {plantingSlot !== null && (
         <Modal title="Zasadi Pliticu" onClose={() => setPlantingSlot(null)}>
-          <PlantingForm onPlant={d => handlePlant(plantingSlot, d)} onClose={() => setPlantingSlot(null)} />
+          <PlantingForm
+            seedAmounts={seedAmounts}
+            onPlant={d => handlePlant(plantingSlot, d)}
+            onClose={() => setPlantingSlot(null)}
+          />
         </Modal>
       )}
 
@@ -631,7 +626,8 @@ function ShelfView({ regals, regalIdx, onUpdate, onBack, openSlot, onOpenSlotCon
             regal={regalIdx+1}
             shelf={Math.floor(viewingSlot/4)+1}
             trayNum={(viewingSlot%4)+1}
-            onClear={() => clearSlot(viewingSlot)}
+            onClear={() => handleClearSlot(viewingSlot)}
+            onHarvest={yieldG => handleHarvest(viewingSlot, viewingTray, yieldG)}
             onClose={() => setViewingSlot(null)}
           />
         </Modal>
@@ -644,8 +640,10 @@ function ShelfView({ regals, regalIdx, onUpdate, onBack, openSlot, onOpenSlotCon
 
 export default function Batches() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [regals, setRegals]           = useState(loadRegals);
-  const [selectedRegal, setSelected]  = useState(null); // null = overview
+  const [regals,       setRegals]       = useState(emptyRegals);
+  const [seedAmounts,  setSeedAmounts]  = useState({});
+  const [loading,      setLoading]      = useState(true);
+  const [selectedRegal, setSelected]   = useState(null); // null = overview
   const [openSlotFromUrl, setOpenSlotFromUrl] = useState(null);
 
   // Read ?regal=&slot= from URL (from task click)
@@ -653,51 +651,114 @@ export default function Batches() {
   const urlSlot  = searchParams.get('slot');
 
   useEffect(() => {
-    if (urlRegal && urlSlot != null && openSlotFromUrl === null) {
+    Promise.all([fetchRegals(), fetchSeeds()])
+      .then(([r, s]) => { setRegals(r); setSeedAmounts(s); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!loading && urlRegal && urlSlot != null && openSlotFromUrl === null) {
       const regalNum = parseInt(urlRegal, 10);
-      const slotNum = parseInt(urlSlot, 10);
+      const slotNum  = parseInt(urlSlot,  10);
       if (regalNum >= 1 && regalNum <= 4 && slotNum >= 0 && slotNum < 16) {
         setSelected(regalNum - 1);
         setOpenSlotFromUrl(slotNum);
         setSearchParams({}, { replace: true });
       }
     }
-  }, [urlRegal, urlSlot, openSlotFromUrl, setSearchParams]);
+  }, [loading, urlRegal, urlSlot, openSlotFromUrl, setSearchParams]);
 
-  const saveRegals = next => {
-    setRegals(next);
-    localStorage.setItem(REGALS_KEY, JSON.stringify(next));
+  // ── API handlers ──
+
+  const handlePlant = async (regalIdx, slotIdx, data) => {
+    const crop = CROP_RECIPES.find(c => c.key === data.cropKey);
+    try {
+      const result = await plantTray(regalIdx, slotIdx, data.cropKey, data.plantedDate, data.notes, crop?.seedsPerTray ?? 0);
+      setRegals(prev => {
+        const next = prev.map(r => [...r]);
+        next[regalIdx][slotIdx] = { cropKey: result.tray.cropKey, plantedDate: result.tray.plantedDate, notes: result.tray.notes };
+        return next;
+      });
+      setSeedAmounts(prev => ({ ...prev, [data.cropKey]: result.seedGrams }));
+    } catch {}
   };
 
-  const totalOccupied = regals.reduce((s, r) => s + r.filter(Boolean).length, 0);
+  const handleClearSlot = async (regalIdx, slotIdx) => {
+    try {
+      await clearTray(regalIdx, slotIdx);
+      setRegals(prev => {
+        const next = prev.map(r => [...r]);
+        next[regalIdx][slotIdx] = null;
+        return next;
+      });
+    } catch {}
+  };
 
-  const exportData = () => {
-    const data = {
-      regals: JSON.parse(localStorage.getItem('zgreens_regals_v1') || 'null'),
-      seeds:  JSON.parse(localStorage.getItem('zgreens_seed_storage') || 'null'),
-      harvests: JSON.parse(localStorage.getItem('zgreens_harvests') || '[]'),
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `zgreens-backup-${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleHarvest = async (regalIdx, slotIdx, payload) => {
+    try {
+      await createHarvest(payload);
+      await handleClearSlot(regalIdx, slotIdx);
+    } catch {}
+  };
+
+  // ── Export / Import ──
+
+  const exportData = async () => {
+    try {
+      const [exportRegals, seeds, harvests] = await Promise.all([
+        fetchRegals(), fetchSeeds(), fetchHarvests(),
+      ]);
+      const data = { regals: exportRegals, seeds, harvests, exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `zgreens-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {}
   };
 
   const importData = e => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (data.regals) localStorage.setItem('zgreens_regals_v1', JSON.stringify(data.regals));
-        if (data.seeds)  localStorage.setItem('zgreens_seed_storage', JSON.stringify(data.seeds));
-        if (data.harvests) localStorage.setItem('zgreens_harvests', JSON.stringify(data.harvests));
-        saveRegals(data.regals || emptyRegals());
+
+        // Wipe existing data
+        await Promise.all([deleteAllTrays(), deleteAllHarvests()]);
+
+        // Import trays
+        const trayPromises = [];
+        if (data.regals) {
+          data.regals.forEach((regal, ri) => {
+            if (!Array.isArray(regal)) return;
+            regal.forEach((slot, si) => {
+              if (!slot) return;
+              trayPromises.push(upsertTray(ri, si, slot));
+            });
+          });
+        }
+
+        // Import seeds
+        const seedPromises = data.seeds
+          ? Object.entries(data.seeds).map(([cropKey, grams]) => setSeeds(cropKey, grams))
+          : [];
+
+        // Import harvests
+        const harvestPromises = Array.isArray(data.harvests)
+          ? data.harvests.map(h => createHarvest(h))
+          : [];
+
+        await Promise.all([...trayPromises, ...seedPromises, ...harvestPromises]);
+
+        // Refresh state
+        const [newRegals, newSeeds] = await Promise.all([fetchRegals(), fetchSeeds()]);
+        setRegals(newRegals);
+        setSeedAmounts(newSeeds);
       } catch {
         alert('Neispravan backup file.');
       }
@@ -705,6 +766,17 @@ export default function Batches() {
     reader.readAsText(file);
     e.target.value = '';
   };
+
+  if (loading) return (
+    <div className="p-10">
+      <div className="page-header">
+        <h2 className="page-title">Plitice</h2>
+      </div>
+      <p className="text-gray-400 text-base">Učitavanje...</p>
+    </div>
+  );
+
+  const totalOccupied = regals.reduce((s, r) => s + r.filter(Boolean).length, 0);
 
   // ── Regal overview ──
   if (selectedRegal === null) {
@@ -738,7 +810,10 @@ export default function Batches() {
       <ShelfView
         regals={regals}
         regalIdx={selectedRegal}
-        onUpdate={saveRegals}
+        seedAmounts={seedAmounts}
+        onPlant={handlePlant}
+        onClearSlot={handleClearSlot}
+        onHarvest={handleHarvest}
         onBack={() => { setSelected(null); setOpenSlotFromUrl(null); }}
         openSlot={openSlotFromUrl}
         onOpenSlotConsumed={() => setOpenSlotFromUrl(null)}

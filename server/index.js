@@ -13,6 +13,9 @@ app.use('/api/sales', require('./routes/sales'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/profitability', require('./routes/profitability'));
+app.use('/api/trays',    require('./routes/trays'));
+app.use('/api/seeds',    require('./routes/seeds'));
+app.use('/api/harvests', require('./routes/harvests'));
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

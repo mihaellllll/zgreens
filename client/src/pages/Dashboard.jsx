@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
+import { fetchRegals } from '../api/growRack';
 import StatCard from '../components/StatCard';
 import { useAuth } from '../hooks/useAuth';
 import { CROP_RECIPES, getCurrentPhase } from '../data/cropData';
@@ -36,11 +37,8 @@ function greeting() {
   return 'Dobra večer';
 }
 
-function readLocalData() {
+function computeLocalData(regals) {
   try {
-    const regals = JSON.parse(localStorage.getItem('zgreens_regals_v1')) ||
-                   Array(4).fill(null).map(() => Array(16).fill(null));
-
     const allTrays = [];
     regals.forEach((regal, ri) => {
       if (!Array.isArray(regal)) return;
@@ -97,17 +95,22 @@ function readLocalData() {
   }
 }
 
+const EMPTY_LOCAL = { activeBatches: 0, upcomingHarvests: [], recentBatches: [], pendingTasks: 0 };
+
 export default function Dashboard() {
   const { user } = useAuth();
-  const [apiData, setApiData] = useState(null);
-  const [localData] = useState(readLocalData);
-  const [loading, setLoading] = useState(true);
+  const [apiData,   setApiData]   = useState(null);
+  const [localData, setLocalData] = useState(EMPTY_LOCAL);
+  const [loading,   setLoading]   = useState(true);
 
   useEffect(() => {
-    api.get('/dashboard')
-      .then(r => setApiData(r.data))
-      .catch(() => setApiData({}))
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.get('/dashboard').catch(() => ({ data: {} })),
+      fetchRegals().catch(() => Array(4).fill(null).map(() => Array(16).fill(null))),
+    ]).then(([apiRes, regals]) => {
+      setApiData(apiRes.data);
+      setLocalData(computeLocalData(regals));
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return (

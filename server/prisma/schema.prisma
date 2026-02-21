@@ -98,3 +98,35 @@ model SaleItem {
   pricePerG  Float
   subtotal   Float
 }
+
+model TraySlot {
+  id          Int      @id @default(autoincrement())
+  regal       Int
+  slot        Int
+  cropKey     String
+  plantedDate String
+  notes       String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([regal, slot])
+}
+
+model SeedStorage {
+  id        Int      @id @default(autoincrement())
+  cropKey   String   @unique
+  grams     Float    @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model Harvest {
+  id        Int      @id @default(autoincrement())
+  cropKey   String
+  cropName  String
+  yieldG    Float    @default(0)
+  date      String
+  regal     Int
+  shelf     Int
+  tray      Int
+  createdAt DateTime @default(now())
+}

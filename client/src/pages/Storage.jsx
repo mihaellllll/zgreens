@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../components/Modal';
 import { CROP_RECIPES } from '../data/cropData';
-import { getStorage, addSeeds } from '../data/storageUtils';
+import { fetchSeeds, addSeeds } from '../api/growRack';
 import { PlusIcon, XIcon, CheckIcon } from '../components/Icons';
 
 // ─── Seed Bag SVG ─────────────────────────────────────────────────────────────
@@ -260,14 +260,20 @@ function AddSeedsForm({ crop, currentAmount, onSave, onClose }) {
 // ─── Main Storage page ────────────────────────────────────────────────────────
 
 export default function Storage() {
-  const [amounts, setAmounts] = useState(() => getStorage());
+  const [amounts, setAmounts] = useState({});
+  const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState(null); // crop object | null
 
-  const refresh = useCallback(() => setAmounts(getStorage()), []);
+  useEffect(() => {
+    fetchSeeds()
+      .then(data => setAmounts(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleAdd = (crop, grams) => {
-    addSeeds(crop.key, grams);
-    refresh();
+  const handleAdd = async (crop, grams) => {
+    await addSeeds(crop.key, grams);
+    setAmounts(prev => ({ ...prev, [crop.key]: (prev[crop.key] ?? 0) + grams }));
     setModal(null);
   };
 
@@ -275,6 +281,15 @@ export default function Storage() {
 
   const count = CROP_RECIPES.length;
   const minCol = count <= 3 ? 320 : count <= 5 ? 260 : 220;
+
+  if (loading) return (
+    <div className="p-10">
+      <div className="page-header">
+        <h2 className="page-title">Skladište Sjemena</h2>
+      </div>
+      <p className="text-gray-400 text-base">Učitavanje...</p>
+    </div>
+  );
 
   return (
     <div className="p-10 h-full flex flex-col">

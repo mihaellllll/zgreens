@@ -1,44 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CROP_RECIPES } from '../data/cropData';
+import { fetchHarvests, deleteHarvest, deleteAllHarvests } from '../api/growRack';
 import { TrashIcon, XIcon } from '../components/Icons';
 
-const HARVESTS_KEY = 'zgreens_harvests';
-
-function loadHarvests() {
-  try {
-    return JSON.parse(localStorage.getItem(HARVESTS_KEY) || '[]')
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  } catch {
-    return [];
-  }
-}
-
-function harvestKey(h) {
-  return `${h.date}-${h.cropKey}-${h.regal}-${h.shelf}-${h.tray}`;
-}
-
 export default function Harvests() {
-  const [harvests, setHarvests]         = useState(loadHarvests);
-  const [pendingDelete, setPendingDelete] = useState(null);
+  const [harvests, setHarvests]           = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [pendingDelete, setPendingDelete] = useState(null); // harvest id
   const [confirmClearAll, setConfirmClearAll] = useState(false);
 
-  const deleteHarvest = h => {
-    const key = harvestKey(h);
-    if (pendingDelete !== key) { setPendingDelete(key); return; }
-    const all = JSON.parse(localStorage.getItem(HARVESTS_KEY) || '[]');
-    const idx = all.findIndex(r =>
-      r.cropKey === h.cropKey && r.date === h.date &&
-      r.regal === h.regal && r.shelf === h.shelf && r.tray === h.tray
-    );
-    if (idx !== -1) all.splice(idx, 1);
-    localStorage.setItem(HARVESTS_KEY, JSON.stringify(all));
-    setHarvests(all.slice().sort((a, b) => new Date(b.date) - new Date(a.date)));
+  useEffect(() => {
+    fetchHarvests()
+      .then(data => setHarvests(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleDelete = async h => {
+    if (pendingDelete !== h.id) { setPendingDelete(h.id); return; }
+    await deleteHarvest(h.id);
+    setHarvests(prev => prev.filter(r => r.id !== h.id));
     setPendingDelete(null);
   };
 
-  const clearAll = () => {
-    localStorage.setItem(HARVESTS_KEY, '[]');
+  const clearAll = async () => {
+    await deleteAllHarvests();
     setHarvests([]);
     setConfirmClearAll(false);
   };
@@ -51,6 +38,15 @@ export default function Harvests() {
   const cropCounts = {};
   harvests.forEach(h => { cropCounts[h.cropName] = (cropCounts[h.cropName] || 0) + 1; });
   const topCrop = Object.entries(cropCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+  if (loading) return (
+    <div className="p-10">
+      <div className="page-header">
+        <h2 className="page-title">Evidencija Berbi</h2>
+      </div>
+      <p className="text-gray-400 text-base">Učitavanje...</p>
+    </div>
+  );
 
   return (
     <div className="p-10 h-full flex flex-col">
@@ -140,11 +136,10 @@ export default function Harvests() {
                 </tr>
               </thead>
               <tbody>
-                {harvests.map((h, i) => {
+                {harvests.map(h => {
                   const crop = CROP_RECIPES.find(c => c.key === h.cropKey);
-                  const key  = harvestKey(h);
                   return (
-                    <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
+                    <tr key={h.id} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="px-5 py-4 text-gray-600">
                         {new Date(h.date).toLocaleDateString('hr-HR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </td>
@@ -171,9 +166,9 @@ export default function Harvests() {
                           : <span className="text-gray-400 font-normal">—</span>}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        {pendingDelete === key ? (
+                        {pendingDelete === h.id ? (
                           <span className="flex items-center gap-2 justify-end">
-                            <button onClick={() => deleteHarvest(h)} title="Potvrdi" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'8px', background:'#fef2f2', border:'none', cursor:'pointer' }}>
+                            <button onClick={() => handleDelete(h)} title="Potvrdi" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'8px', background:'#fef2f2', border:'none', cursor:'pointer' }}>
                               <TrashIcon size={14} color="#ef4444" />
                             </button>
                             <button onClick={() => setPendingDelete(null)} title="Odustani" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'8px', background:'#f3f4f6', border:'none', cursor:'pointer' }}>
@@ -181,7 +176,7 @@ export default function Harvests() {
                             </button>
                           </span>
                         ) : (
-                          <button onClick={() => setPendingDelete(key)} title="Obriši" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'8px', background:'transparent', border:'none', cursor:'pointer', marginLeft:'auto' }}>
+                          <button onClick={() => setPendingDelete(h.id)} title="Obriši" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'8px', background:'transparent', border:'none', cursor:'pointer', marginLeft:'auto' }}>
                             <TrashIcon size={14} color="#d1d5db" />
                           </button>
                         )}
