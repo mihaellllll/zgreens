@@ -189,7 +189,12 @@ function PlantingForm({ seedAmounts, onPlant, onClose }) {
     const today = new Date(); today.setHours(0,0,0,0);
     const planted = new Date(today);
     planted.setDate(planted.getDate() - (phase.day - 1));
-    onPlant({ cropKey: crop.key, plantedDate: planted.toISOString().slice(0,10), notes });
+    const localDate = [
+      planted.getFullYear(),
+      String(planted.getMonth() + 1).padStart(2, '0'),
+      String(planted.getDate()).padStart(2, '0'),
+    ].join('-');
+    onPlant({ cropKey: crop.key, plantedDate: localDate, notes });
   };
 
   return (

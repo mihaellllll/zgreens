@@ -136,8 +136,9 @@ export const CROP_RECIPES = [
 export function getCurrentPhase(crop, plantedDate) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const planted = new Date(plantedDate);
-  planted.setHours(0, 0, 0, 0);
+  // Parse as local date to avoid UTC midnight timezone shift
+  const [py, pm, pd] = plantedDate.split('-').map(Number);
+  const planted = new Date(py, pm - 1, pd);
   const daysElapsed = Math.floor((today - planted) / 86400000) + 1;
 
   let phaseIdx = 0;
