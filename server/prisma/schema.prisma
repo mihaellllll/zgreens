@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  tasks     Task[]
+}
+
+model CropType {
+  id         Int     @id @default(autoincrement())
+  name       String  @unique
+  growDays   Int
+  difficulty String  @default("easy")
+  seedCostG  Float   @default(0)
+  notes      String  @default("")
+  batches    Batch[]
+}
+
+model Batch {
+  id                  Int       @id @default(autoincrement())
+  cropTypeId          Int
+  cropType            CropType  @relation(fields: [cropTypeId], references: [id], onDelete: Cascade)
+  sowDate             DateTime
+  expectedHarvestDate DateTime
+  harvestDate         DateTime?
+  status              String    @default("germinating")
+  trayCount           Int       @default(1)
+  yieldGrams          Float?
+  notes               String    @default("")
+  createdAt           DateTime  @default(now())
+  costs               Cost[]
+  tasks               Task[]
+  saleItems           SaleItem[]
+}
+
+model Cost {
+  id        Int      @id @default(autoincrement())
+  batchId   Int
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  category  String
+  amount    Float
+  note      String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  batchId   Int?
+  batch     Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  title     String
+  type      String   @default("custom")
+  dueDate   DateTime
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @default("")
+  phone     String   @default("")
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+  sales     Sale[]
+}
+
+model Sale {
+  id         Int        @id @default(autoincrement())
+  customerId Int?
+  customer   Customer?  @relation(fields: [customerId], references: [id])
+  date       DateTime   @default(now())
+  total      Float
+  notes      String     @default("")
+  createdAt  DateTime   @default(now())
+  items      SaleItem[]
+}
+
+model SaleItem {
+  id         Int    @id @default(autoincrement())
+  saleId     Int
+  sale       Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  batchId    Int?
+  batch      Batch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  cropName   String
+  quantityG  Float
+  pricePerG  Float
+  subtotal   Float
+}
