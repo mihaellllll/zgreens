@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -16,6 +17,7 @@ app.use('/api/profitability', require('./routes/profitability'));
 app.use('/api/trays',    require('./routes/trays'));
 app.use('/api/seeds',    require('./routes/seeds'));
 app.use('/api/harvests', require('./routes/harvests'));
+app.use('/api/ai',       require('./routes/ai'));
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

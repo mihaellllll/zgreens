@@ -10,6 +10,7 @@ import Profitability from './pages/Profitability';
 import Sales from './pages/Sales';
 import Storage from './pages/Storage';
 import Harvests from './pages/Harvests';
+import AIHelper from './pages/AIHelper';
 
 function ProtectedLayout() {
   const { user } = useAuth();
@@ -27,6 +28,7 @@ function ProtectedLayout() {
           <Route path="/harvests" element={<Harvests />} />
           <Route path="/profitability" element={<Profitability />} />
           <Route path="/sales" element={<Sales />} />
+          <Route path="/ai" element={<AIHelper />} />
         </Routes>
       </main>
     </div>

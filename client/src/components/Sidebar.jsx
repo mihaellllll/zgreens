@@ -9,6 +9,7 @@ import {
   SaleIcon,
   StorageIcon,
   HarvestIcon,
+  AIIcon,
   LogoutIcon,
 } from './Icons';
 
@@ -21,6 +22,7 @@ const NAV = [
   { to: '/harvests',     label: 'Berbe',            Icon: HarvestIcon   },
   { to: '/profitability',label: 'Profitabilnost',   Icon: ChartIcon     },
   { to: '/sales',        label: 'Prodaja',          Icon: SaleIcon      },
+  { to: '/ai',           label: 'AI Asistent',      Icon: AIIcon        },
 ];
 
 export default function Sidebar() {
@@ -35,7 +37,7 @@ export default function Sidebar() {
         <h1 className="text-2xl font-bold tracking-tight">ZGreens</h1>
         <p className="text-brand-200/90 text-base mt-1.5">{user?.name}</p>
       </div>
-      <nav className="flex-1 px-4 py-5 space-y-1">
+      <nav className="flex-1 px-4 py-5 space-y-1 overflow-y-auto">
         {NAV.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
