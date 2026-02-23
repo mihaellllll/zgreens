@@ -1,6 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import api from '../api/client';
 
+const STORAGE_KEY = 'zgreens_ai_messages';
+
+const GREETING = {
+  role: 'assistant',
+  text: 'Zdravo! Ja sam tvoj ZGreens AI asistent. Vidim podatke tvoje farme u stvarnom vremenu — aktivne plitice, zalihe sjemena, berbe i prodaju. Što te zanima?',
+};
+
+function loadMessages() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [GREETING];
+}
+
 const QUICK_ACTIONS = [
   'Koji usjevi su trenutno najprofitabilniji?',
   'Koliko sjemena mi je ostalo i treba li mi naručiti?',
@@ -9,15 +27,17 @@ const QUICK_ACTIONS = [
 ];
 
 export default function AIHelper() {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      text: 'Zdravo! Ja sam tvoj ZGreens AI asistent. Vidim podatke tvoje farme u stvarnom vremenu — aktivne plitice, zalihe sjemena, berbe i prodaju. Što te zanima?',
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState(loadMessages);
+  const [input, setInput]       = useState('');
+  const [loading, setLoading]   = useState(false);
   const bottomRef = useRef(null);
+
+  // Persist conversation to sessionStorage on every change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {}
+  }, [messages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -35,7 +55,7 @@ export default function AIHelper() {
     try {
       const { data } = await api.post('/ai/chat', {
         message: msg,
-        history: messages.slice(1), // skip the greeting
+        history: next.slice(1), // skip the greeting
       });
       setMessages(prev => [...prev, { role: 'assistant', text: data.reply }]);
     } catch (err) {
@@ -48,11 +68,20 @@ export default function AIHelper() {
 
   return (
     <div className="p-4 md:p-10 h-full flex flex-col">
-      <div className="page-header">
+      <div className="page-header flex items-center justify-between">
         <div>
           <h2 className="page-title">AI Asistent</h2>
           <p className="text-gray-500 text-sm mt-1">Analiza podataka farme u stvarnom vremenu</p>
         </div>
+        {messages.length > 1 && (
+          <button
+            onClick={() => setMessages([GREETING])}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1 rounded"
+            title="Obriši razgovor"
+          >
+            Obriši razgovor
+          </button>
+        )}
       </div>
 
       {/* Quick action chips */}
