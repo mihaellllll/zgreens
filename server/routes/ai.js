@@ -108,12 +108,13 @@ router.post('/chat', auth, async (req, res) => {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const now  = new Date();
 
-    // Fetch all farm data in parallel
+    // Fetch all farm data in parallel (scoped to current user)
     const [trays, seeds, harvests, sales, customers] = await Promise.all([
-      prisma.traySlot.findMany({ orderBy: [{ regal: 'asc' }, { slot: 'asc' }] }),
-      prisma.seedStorage.findMany(),
-      prisma.harvest.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
+      prisma.traySlot.findMany({ where: { userId: req.user.id }, orderBy: [{ regal: 'asc' }, { slot: 'asc' }] }),
+      prisma.seedStorage.findMany({ where: { userId: req.user.id } }),
+      prisma.harvest.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: 'desc' }, take: 50 }),
       prisma.sale.findMany({
+        where: { userId: req.user.id },
         orderBy: { date: 'desc' }, take: 30,
         include: { items: true, customer: true },
       }),

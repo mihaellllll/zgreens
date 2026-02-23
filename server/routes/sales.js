@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 router.get('/', auth, async (req, res) => {
   try {
     const sales = await prisma.sale.findMany({
+      where: { userId: req.user.id },
       include: { customer: true, items: { include: { batch: { include: { cropType: true } } } } },
       orderBy: { date: 'desc' }
     });
@@ -22,6 +23,7 @@ router.post('/', auth, async (req, res) => {
     const total = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
     const sale = await prisma.sale.create({
       data: {
+        userId: req.user.id,
         customerId: customerId ? Number(customerId) : null,
         date: date ? new Date(date) : new Date(),
         total,
@@ -46,7 +48,7 @@ router.post('/', auth, async (req, res) => {
 
 router.delete('/:id', auth, async (req, res) => {
   try {
-    await prisma.sale.delete({ where: { id: Number(req.params.id) } });
+    await prisma.sale.deleteMany({ where: { id: Number(req.params.id), userId: req.user.id } });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

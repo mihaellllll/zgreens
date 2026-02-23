@@ -8,12 +8,16 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
-  tasks     Task[]
+  id          Int           @id @default(autoincrement())
+  email       String        @unique
+  password    String
+  name        String
+  createdAt   DateTime      @default(now())
+  tasks       Task[]
+  traySlots   TraySlot[]
+  seedStorage SeedStorage[]
+  harvests    Harvest[]
+  sales       Sale[]
 }
 
 model CropType {
@@ -78,6 +82,8 @@ model Customer {
 
 model Sale {
   id         Int        @id @default(autoincrement())
+  userId     Int        @default(1)
+  user       User       @relation(fields: [userId], references: [id])
   customerId Int?
   customer   Customer?  @relation(fields: [customerId], references: [id])
   date       DateTime   @default(now())
@@ -101,6 +107,8 @@ model SaleItem {
 
 model TraySlot {
   id          Int      @id @default(autoincrement())
+  userId      Int      @default(1)
+  user        User     @relation(fields: [userId], references: [id])
   regal       Int
   slot        Int
   cropKey     String
@@ -109,18 +117,24 @@ model TraySlot {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([regal, slot])
+  @@unique([regal, slot, userId])
 }
 
 model SeedStorage {
   id        Int      @id @default(autoincrement())
-  cropKey   String   @unique
+  userId    Int      @default(1)
+  user      User     @relation(fields: [userId], references: [id])
+  cropKey   String
   grams     Float    @default(0)
   updatedAt DateTime @updatedAt
+
+  @@unique([cropKey, userId])
 }
 
 model Harvest {
   id        Int      @id @default(autoincrement())
+  userId    Int      @default(1)
+  user      User     @relation(fields: [userId], references: [id])
   cropKey   String
   cropName  String
   yieldG    Float    @default(0)

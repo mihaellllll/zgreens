@@ -24,7 +24,7 @@ router.get('/', auth, async (req, res) => {
       }),
       prisma.task.count({ where: { userId: req.user.id, completed: false } }),
       prisma.sale.aggregate({
-        where: { date: { gte: startOfWeek } },
+        where: { userId: req.user.id, date: { gte: startOfWeek } },
         _sum: { total: true }
       })
     ]);

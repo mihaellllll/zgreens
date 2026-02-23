@@ -4,10 +4,11 @@ const auth = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
-// GET /api/harvests — all records ordered by date desc
+// GET /api/harvests — all records for current user, ordered by date desc
 router.get('/', auth, async (req, res) => {
   try {
     const harvests = await prisma.harvest.findMany({
+      where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
     });
     res.json(harvests);
@@ -21,7 +22,7 @@ router.post('/', auth, async (req, res) => {
   const { cropKey, cropName, yieldG, date, regal, shelf, tray } = req.body;
   try {
     const record = await prisma.harvest.create({
-      data: { cropKey, cropName, yieldG: Number(yieldG), date, regal, shelf, tray },
+      data: { userId: req.user.id, cropKey, cropName, yieldG: Number(yieldG), date, regal, shelf, tray },
     });
     res.json(record);
   } catch (err) {
@@ -29,21 +30,21 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/harvests — delete all
+// DELETE /api/harvests — delete all for current user
 router.delete('/', auth, async (req, res) => {
   try {
-    await prisma.harvest.deleteMany();
+    await prisma.harvest.deleteMany({ where: { userId: req.user.id } });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE /api/harvests/:id — delete one
+// DELETE /api/harvests/:id — delete one (scoped to user)
 router.delete('/:id', auth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   try {
-    await prisma.harvest.delete({ where: { id } });
+    await prisma.harvest.deleteMany({ where: { id, userId: req.user.id } });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
