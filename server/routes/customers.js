@@ -6,7 +6,10 @@ const prisma = new PrismaClient();
 
 router.get('/', auth, async (req, res) => {
   try {
-    const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
+    const customers = await prisma.customer.findMany({
+      where: { userId: req.user.id },
+      orderBy: { name: 'asc' },
+    });
     res.json(customers);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -17,7 +20,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const { name, email, phone, notes } = req.body;
     const customer = await prisma.customer.create({
-      data: { name, email: email || '', phone: phone || '', notes: notes || '' }
+      data: { userId: req.user.id, name, email: email || '', phone: phone || '', notes: notes || '' }
     });
     res.json(customer);
   } catch (err) {
@@ -28,8 +31,8 @@ router.post('/', auth, async (req, res) => {
 router.patch('/:id', auth, async (req, res) => {
   try {
     const { name, email, phone, notes } = req.body;
-    const customer = await prisma.customer.update({
-      where: { id: Number(req.params.id) },
+    const customer = await prisma.customer.updateMany({
+      where: { id: Number(req.params.id), userId: req.user.id },
       data: {
         ...(name !== undefined && { name }),
         ...(email !== undefined && { email }),

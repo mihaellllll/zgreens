@@ -18,20 +18,29 @@ model User {
   seedStorage SeedStorage[]
   harvests    Harvest[]
   sales       Sale[]
+  customers   Customer[]
+  cropTypes   CropType[]
+  batches     Batch[]
 }
 
 model CropType {
   id         Int     @id @default(autoincrement())
-  name       String  @unique
+  userId     Int     @default(1)
+  user       User    @relation(fields: [userId], references: [id])
+  name       String
   growDays   Int
   difficulty String  @default("easy")
   seedCostG  Float   @default(0)
   notes      String  @default("")
   batches    Batch[]
+
+  @@unique([name, userId])
 }
 
 model Batch {
   id                  Int       @id @default(autoincrement())
+  userId              Int       @default(1)
+  user                User      @relation(fields: [userId], references: [id])
   cropTypeId          Int
   cropType            CropType  @relation(fields: [cropTypeId], references: [id], onDelete: Cascade)
   sowDate             DateTime
@@ -72,6 +81,8 @@ model Task {
 
 model Customer {
   id        Int      @id @default(autoincrement())
+  userId    Int      @default(1)
+  user      User     @relation(fields: [userId], references: [id])
   name      String
   email     String   @default("")
   phone     String   @default("")

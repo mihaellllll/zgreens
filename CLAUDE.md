@@ -37,15 +37,12 @@ Full-stack app split into `server/` (Node/Express/Prisma) and `client/` (React/V
 
 **The app is fully API-backed (PostgreSQL on Railway).** All grow-rack, seed, harvest, and sales data lives in the database — no localStorage data stores remain (except auth token and UI session state).
 
-**Per-user data isolation:** The following models are scoped to `userId` — each user sees only their own data:
-- `TraySlot` — grow rack slots (unique per `[regal, slot, userId]`)
-- `SeedStorage` — seed inventory (unique per `[cropKey, userId]`)
-- `Harvest` — harvest records
-- `Sale` — sales records
-
-**Shared / legacy models** (no userId scoping, all users share):
-- `Customer` — customer directory
-- `CropType`, `Batch`, `Cost`, `SaleItem`, `Task` — legacy batch system (largely superseded; profitability page still reads from these)
+**Per-user data isolation:** Every model is scoped to `userId` — each user sees only their own data. All routes filter by `req.user.id`.
+- `TraySlot` — unique per `[regal, slot, userId]`
+- `SeedStorage` — unique per `[cropKey, userId]`
+- `CropType` — unique per `[name, userId]`
+- `Harvest`, `Sale`, `Batch`, `Customer`, `Task` — all have `userId`
+- `Cost` and `SaleItem` have no userId but are always accessed through their parent (`Batch` / `Sale`) which is user-scoped
 
 ### Server
 

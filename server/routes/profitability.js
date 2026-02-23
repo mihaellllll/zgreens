@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 router.get('/', auth, async (req, res) => {
   try {
     const batches = await prisma.batch.findMany({
+      where: { userId: req.user.id },
       include: {
         cropType: true,
         costs: true,

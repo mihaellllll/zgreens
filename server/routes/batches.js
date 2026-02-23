@@ -79,6 +79,7 @@ async function generateTasks(batch, userId, prisma) {
 router.get('/', auth, async (req, res) => {
   try {
     const batches = await prisma.batch.findMany({
+      where: { userId: req.user.id },
       include: { cropType: true, costs: true },
       orderBy: { createdAt: 'desc' }
     });
@@ -90,8 +91,8 @@ router.get('/', auth, async (req, res) => {
 
 router.get('/:id', auth, async (req, res) => {
   try {
-    const batch = await prisma.batch.findUnique({
-      where: { id: Number(req.params.id) },
+    const batch = await prisma.batch.findFirst({
+      where: { id: Number(req.params.id), userId: req.user.id },
       include: { cropType: true, costs: true, tasks: { orderBy: { dueDate: 'asc' } }, saleItems: { include: { sale: true } } }
     });
     if (!batch) return res.status(404).json({ error: 'Not found' });
@@ -104,7 +105,7 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { cropTypeId, sowDate, trayCount, notes, costs } = req.body;
-    const cropType = await prisma.cropType.findUnique({ where: { id: Number(cropTypeId) } });
+    const cropType = await prisma.cropType.findFirst({ where: { id: Number(cropTypeId), userId: req.user.id } });
     if (!cropType) return res.status(404).json({ error: 'Crop type not found' });
 
     const sow = new Date(sowDate);
@@ -113,6 +114,7 @@ router.post('/', auth, async (req, res) => {
 
     const batch = await prisma.batch.create({
       data: {
+        userId: req.user.id,
         cropTypeId: Number(cropTypeId),
         sowDate: sow,
         expectedHarvestDate,
@@ -162,7 +164,7 @@ router.post('/', auth, async (req, res) => {
 router.patch('/:id', auth, async (req, res) => {
   try {
     const { status, harvestDate, yieldGrams, notes, trayCount } = req.body;
-    const existing = await prisma.batch.findUnique({ where: { id: Number(req.params.id) }, include: { cropType: true } });
+    const existing = await prisma.batch.findFirst({ where: { id: Number(req.params.id), userId: req.user.id }, include: { cropType: true } });
     if (!existing) return res.status(404).json({ error: 'Not found' });
 
     const data = {};
@@ -195,6 +197,10 @@ router.patch('/:id', auth, async (req, res) => {
 
 router.post('/:id/costs', auth, async (req, res) => {
   try {
+    // Verify batch belongs to user
+    const batch = await prisma.batch.findFirst({ where: { id: Number(req.params.id), userId: req.user.id } });
+    if (!batch) return res.status(404).json({ error: 'Not found' });
+
     const { category, amount, note } = req.body;
     const cost = await prisma.cost.create({
       data: {
@@ -212,6 +218,10 @@ router.post('/:id/costs', auth, async (req, res) => {
 
 router.delete('/:id/costs/:costId', auth, async (req, res) => {
   try {
+    // Verify batch belongs to user
+    const batch = await prisma.batch.findFirst({ where: { id: Number(req.params.id), userId: req.user.id } });
+    if (!batch) return res.status(404).json({ error: 'Not found' });
+
     await prisma.cost.delete({ where: { id: Number(req.params.costId) } });
     res.json({ ok: true });
   } catch (err) {

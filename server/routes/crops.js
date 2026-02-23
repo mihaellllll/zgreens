@@ -6,7 +6,10 @@ const prisma = new PrismaClient();
 
 router.get('/', auth, async (req, res) => {
   try {
-    const crops = await prisma.cropType.findMany({ orderBy: { name: 'asc' } });
+    const crops = await prisma.cropType.findMany({
+      where: { userId: req.user.id },
+      orderBy: { name: 'asc' },
+    });
     res.json(crops);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -17,7 +20,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const { name, growDays, difficulty, seedCostG, notes } = req.body;
     const crop = await prisma.cropType.create({
-      data: { name, growDays: Number(growDays), difficulty, seedCostG: Number(seedCostG || 0), notes: notes || '' }
+      data: { userId: req.user.id, name, growDays: Number(growDays), difficulty, seedCostG: Number(seedCostG || 0), notes: notes || '' }
     });
     res.json(crop);
   } catch (err) {
@@ -28,8 +31,8 @@ router.post('/', auth, async (req, res) => {
 router.patch('/:id', auth, async (req, res) => {
   try {
     const { name, growDays, difficulty, seedCostG, notes } = req.body;
-    const crop = await prisma.cropType.update({
-      where: { id: Number(req.params.id) },
+    const crop = await prisma.cropType.updateMany({
+      where: { id: Number(req.params.id), userId: req.user.id },
       data: {
         ...(name !== undefined && { name }),
         ...(growDays !== undefined && { growDays: Number(growDays) }),
@@ -46,7 +49,7 @@ router.patch('/:id', auth, async (req, res) => {
 
 router.delete('/:id', auth, async (req, res) => {
   try {
-    await prisma.cropType.delete({ where: { id: Number(req.params.id) } });
+    await prisma.cropType.deleteMany({ where: { id: Number(req.params.id), userId: req.user.id } });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

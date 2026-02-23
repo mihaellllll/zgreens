@@ -12,9 +12,10 @@ router.get('/', auth, async (req, res) => {
     startOfWeek.setHours(0, 0, 0, 0);
 
     const [activeBatches, upcomingHarvests, pendingTasks, weeklySales] = await Promise.all([
-      prisma.batch.count({ where: { status: { notIn: ['harvested', 'failed'] } } }),
+      prisma.batch.count({ where: { userId: req.user.id, status: { notIn: ['harvested', 'failed'] } } }),
       prisma.batch.findMany({
         where: {
+          userId: req.user.id,
           status: { notIn: ['harvested', 'failed'] },
           expectedHarvestDate: { gte: now, lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) }
         },
@@ -31,7 +32,7 @@ router.get('/', auth, async (req, res) => {
 
     // Top profitable crop (by avg margin)
     const harvested = await prisma.batch.findMany({
-      where: { status: 'harvested', yieldGrams: { gt: 0 } },
+      where: { userId: req.user.id, status: 'harvested', yieldGrams: { gt: 0 } },
       include: {
         cropType: true,
         costs: true,
@@ -59,6 +60,7 @@ router.get('/', auth, async (req, res) => {
 
     // Recent batches
     const recentBatches = await prisma.batch.findMany({
+      where: { userId: req.user.id },
       include: { cropType: true },
       orderBy: { createdAt: 'desc' },
       take: 5

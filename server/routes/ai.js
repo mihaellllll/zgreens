@@ -118,7 +118,7 @@ router.post('/chat', auth, async (req, res) => {
         orderBy: { date: 'desc' }, take: 30,
         include: { items: true, customer: true },
       }),
-      prisma.customer.findMany({ orderBy: { name: 'asc' } }),
+      prisma.customer.findMany({ where: { userId: req.user.id }, orderBy: { name: 'asc' } }),
     ]);
 
     // ── Trays with live phase info ──
