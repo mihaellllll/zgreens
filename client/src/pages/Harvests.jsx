@@ -40,7 +40,7 @@ export default function Harvests() {
   const topCrop = Object.entries(cropCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
 
   if (loading) return (
-    <div className="p-10">
+    <div className="p-4 md:p-10">
       <div className="page-header">
         <h2 className="page-title">Evidencija Berbi</h2>
       </div>
@@ -49,7 +49,7 @@ export default function Harvests() {
   );
 
   return (
-    <div className="p-10 h-full flex flex-col">
+    <div className="p-4 md:p-10 h-full flex flex-col">
       {/* Header */}
       <div className="page-header flex items-center justify-between flex-shrink-0">
         <div>
@@ -80,20 +80,20 @@ export default function Harvests() {
       ) : (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-3 gap-5 mb-8 flex-shrink-0">
+          <div className="grid grid-cols-3 gap-2 md:gap-5 mb-5 md:mb-8 flex-shrink-0">
             <div className="card text-center">
-              <p className="text-3xl font-bold text-brand-600">{harvests.length}</p>
-              <p className="text-sm text-gray-500 mt-1">Ukupno berbi</p>
+              <p className="text-xl md:text-3xl font-bold text-brand-600">{harvests.length}</p>
+              <p className="text-xs md:text-sm text-gray-500 mt-1">Ukupno berbi</p>
             </div>
             <div className="card text-center">
-              <p className="text-3xl font-bold text-brand-600">{totalYield}g</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Ukupni prinos{avgYield > 0 && <span className="text-gray-400"> · prosj. {avgYield}g</span>}
+              <p className="text-xl md:text-3xl font-bold text-brand-600">{totalYield}g</p>
+              <p className="text-xs md:text-sm text-gray-500 mt-1">
+                Ukupni prinos{avgYield > 0 && <span className="text-gray-400 hidden sm:inline"> · prosj. {avgYield}g</span>}
               </p>
             </div>
             <div className="card text-center">
-              <p className="text-2xl font-bold text-brand-600 truncate">{topCrop}</p>
-              <p className="text-sm text-gray-500 mt-1">Najčešći usjev</p>
+              <p className="text-lg md:text-2xl font-bold text-brand-600 truncate">{topCrop}</p>
+              <p className="text-xs md:text-sm text-gray-500 mt-1">Najčešći usjev</p>
             </div>
           </div>
 
@@ -125,6 +125,7 @@ export default function Harvests() {
 
           {/* Table */}
           <div className="card overflow-hidden p-0 flex-1">
+            <div className="overflow-x-auto">
             <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
@@ -186,6 +187,7 @@ export default function Harvests() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

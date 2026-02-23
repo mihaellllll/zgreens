@@ -24,7 +24,7 @@ function SeedBagSVG({ crop, fillPct }) {
   const NECK = 'M38,20 L40,40 L80,40 L82,20 Q60,13 38,20 Z';
 
   return (
-    <svg viewBox="0 0 120 185" width="140" height="215" style={{ display: 'block', margin: '0 auto' }}>
+    <svg viewBox="0 0 120 185" width="140" height="215" style={{ display: 'block', width: '100%', maxWidth: '140px', height: 'auto', margin: '0 auto' }}>
       <defs>
         <clipPath id={`${id}-clip`}>
           <path d={BODY} />
@@ -283,7 +283,7 @@ export default function Storage() {
   const minCol = count <= 3 ? 320 : count <= 5 ? 260 : 220;
 
   if (loading) return (
-    <div className="p-10">
+    <div className="p-4 md:p-10">
       <div className="page-header">
         <h2 className="page-title">Skladište Sjemena</h2>
       </div>
@@ -292,7 +292,7 @@ export default function Storage() {
   );
 
   return (
-    <div className="p-10 h-full flex flex-col">
+    <div className="p-4 md:p-10 h-full flex flex-col">
       {/* Header */}
       <div className="page-header flex items-center justify-between flex-shrink-0">
         <h2 className="page-title">Skladište Sjemena</h2>

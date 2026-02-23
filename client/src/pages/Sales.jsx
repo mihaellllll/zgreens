@@ -25,7 +25,7 @@ function AddCustomerForm({ onSave, onClose }) {
         <label className="block text-sm font-medium text-gray-700 mb-1">Ime *</label>
         <input required value={form.name} onChange={f('name')} className="input" placeholder="Ime kupca" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input type="email" value={form.email} onChange={f('email')} className="input" />
@@ -90,7 +90,7 @@ function AddSaleForm({ customers, onSave, onClose }) {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" />
@@ -111,22 +111,26 @@ function AddSaleForm({ customers, onSave, onClose }) {
         </div>
         <div className="space-y-2">
           {items.map((item, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 items-center">
-              <input
-                required
-                placeholder="Vrsta usjeva"
-                value={item.cropName}
-                onChange={e => updateItem(i, 'cropName', e.target.value)}
-                className="input text-sm col-span-3"
-              />
-              <select value={item.batchId} onChange={e => updateItem(i, 'batchId', e.target.value)} className="input text-sm col-span-3">
-                <option value="">Bez plitice</option>
-                {batches.map(b => <option key={b.id} value={b.id}>#{b.id} {b.cropType?.name}</option>)}
-              </select>
-              <input required type="number" min="0" step="0.1" placeholder="Kol. (g)" value={item.quantityG} onChange={e => updateItem(i, 'quantityG', e.target.value)} className="input text-sm col-span-2" />
-              <input required type="number" min="0" step="0.01" placeholder="$/g" value={item.pricePerG} onChange={e => updateItem(i, 'pricePerG', e.target.value)} className="input text-sm col-span-2" />
-              <span className="text-sm text-gray-600 col-span-1 text-right">${((Number(item.quantityG) || 0) * (Number(item.pricePerG) || 0)).toFixed(2)}</span>
-              {items.length > 1 && <button type="button" onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-400 col-span-1">✕</button>}
+            <div key={i} className="border border-gray-100 rounded-lg p-2 space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <input
+                  required
+                  placeholder="Vrsta usjeva"
+                  value={item.cropName}
+                  onChange={e => updateItem(i, 'cropName', e.target.value)}
+                  className="input text-sm"
+                />
+                <select value={item.batchId} onChange={e => updateItem(i, 'batchId', e.target.value)} className="input text-sm">
+                  <option value="">Bez plitice</option>
+                  {batches.map(b => <option key={b.id} value={b.id}>#{b.id} {b.cropType?.name}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-1.5 items-center">
+                <input required type="number" min="0" step="0.1" placeholder="Kol. (g)" value={item.quantityG} onChange={e => updateItem(i, 'quantityG', e.target.value)} className="input text-sm flex-1" />
+                <input required type="number" min="0" step="0.01" placeholder="$/g" value={item.pricePerG} onChange={e => updateItem(i, 'pricePerG', e.target.value)} className="input text-sm flex-1" />
+                <span className="text-sm text-gray-600 whitespace-nowrap">${((Number(item.quantityG) || 0) * (Number(item.pricePerG) || 0)).toFixed(2)}</span>
+                {items.length > 1 && <button type="button" onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-400 text-lg leading-none px-1">✕</button>}
+              </div>
             </div>
           ))}
         </div>
@@ -188,7 +192,7 @@ export default function Sales() {
   const totalRevenue = sales.reduce((s, sale) => s + sale.total, 0);
 
   return (
-    <div className="p-10 h-full flex flex-col">
+    <div className="p-4 md:p-10 h-full flex flex-col">
       <div className="page-header flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="page-title">Prodaja</h2>
@@ -222,6 +226,7 @@ export default function Sales() {
           </div>
         ) : (
           <div className="card overflow-hidden p-0 flex-1">
+            <div className="overflow-x-auto">
             <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
@@ -261,6 +266,7 @@ export default function Sales() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}
@@ -273,6 +279,7 @@ export default function Sales() {
           </div>
         ) : (
           <div className="card overflow-hidden p-0 flex-1">
+            <div className="overflow-x-auto">
             <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
@@ -293,6 +300,7 @@ export default function Sales() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}

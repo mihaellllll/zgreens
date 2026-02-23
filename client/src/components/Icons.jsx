@@ -78,3 +78,4 @@ export const DownloadIcon=(p)=> <I d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 
 export const UploadIcon = (p) => <I d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" {...p} />;
 export const ScissorsIcon=(p)=> <I d="M6 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12" {...p} />;
 export const UserPlusIcon=(p)=> <I d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 11a4 4 0 100-8 4 4 0 000 8zM20 8v6M23 11h-6" {...p} />;
+export const MenuIcon    =(p)=> <I d="M3 12h18M3 6h18M3 18h18" {...p} />;

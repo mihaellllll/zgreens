@@ -8,6 +8,7 @@ import {
   upsertTray, setSeeds,
 } from '../api/growRack';
 import { BackIcon, CheckIcon, XIcon, DownloadIcon, UploadIcon, ScissorsIcon } from '../components/Icons';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ function TrayPlantSVG({ crop, stage, width = 200, height = 128 }) {
   const lry = crop.leafShape === 'thin' ? 8   : crop.leafShape === 'round' ? 5 : 3.5;
 
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
       <rect x={BORDER/2} y={BORDER/2} width={W-BORDER} height={H-BORDER} rx="6"
         fill={`${crop.color}18`} stroke={crop.color} strokeWidth="1.8" />
       <rect x={BORDER} y={SOIL_Y} width={INNER_W} height={H-SOIL_Y-BORDER/2} rx="3" fill="#180901" />
@@ -86,7 +87,7 @@ function TrayPlantSVG({ crop, stage, width = 200, height = 128 }) {
 function EmptyTraySVG({ width = 200, height = 128 }) {
   const W = width, H = height;
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
       <rect x="4" y="4" width={W-8} height={H-8} rx="7" fill="#1c0f05" stroke="#7c3f1e" strokeWidth="1.5" strokeDasharray="5 3" />
       {Array.from({length:8},(_,i)=>(
         <circle key={i} cx={20+i*(W-40)/7} cy={H*.53} r="4" fill="#2d1205" opacity=".55" />
@@ -515,6 +516,7 @@ function RegalCard({ regals, regalIdx, onClick }) {
 function ShelfView({ regals, regalIdx, seedAmounts, onPlant, onClearSlot, onHarvest, onBack, openSlot, onOpenSlotConsumed }) {
   const [plantingSlot, setPlantingSlot] = useState(null);
   const [viewingSlot,  setViewingSlot]  = useState(null);
+  const isMobile = useIsMobile();
 
   const trays = regals[regalIdx] || Array(16).fill(null);
 
@@ -573,7 +575,7 @@ function ShelfView({ regals, regalIdx, seedAmounts, onPlant, onClearSlot, onHarv
         <div style={{
           position:'relative',
           background:'linear-gradient(180deg,#1a1a1a,#111)',
-          borderRadius:'20px', padding:'20px 28px 24px',
+          borderRadius:'20px', padding: isMobile ? '12px 14px 16px' : '20px 28px 24px',
           border:'2px solid #2a2a2a',
           boxShadow:'0 20px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04)',
         }}>
@@ -592,7 +594,7 @@ function ShelfView({ regals, regalIdx, seedAmounts, onPlant, onClearSlot, onHarv
               return (
                 <div key={si} style={{ marginBottom:si<3?'4px':0 }}>
                   <GrowLight label={label} />
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'12px', padding:'4px 6px 8px' }}>
+                  <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: isMobile ? '8px' : '12px', padding:'4px 6px 8px' }}>
                     {trays.slice(start, start+4).map((tray, i) => (
                       <TraySlot key={start+i} tray={tray}
                         onClick={() => tray ? setViewingSlot(start+i) : setPlantingSlot(start+i)} />
@@ -650,6 +652,7 @@ export default function Batches() {
   const [loading,      setLoading]      = useState(true);
   const [selectedRegal, setSelected]   = useState(null); // null = overview
   const [openSlotFromUrl, setOpenSlotFromUrl] = useState(null);
+  const isMobile = useIsMobile();
 
   // Read ?regal=&slot= from URL (from task click)
   const urlRegal = searchParams.get('regal');
@@ -773,7 +776,7 @@ export default function Batches() {
   };
 
   if (loading) return (
-    <div className="p-10">
+    <div className="p-4 md:p-10">
       <div className="page-header">
         <h2 className="page-title">Plitice</h2>
       </div>
@@ -786,7 +789,7 @@ export default function Batches() {
   // ── Regal overview ──
   if (selectedRegal === null) {
     return (
-      <div className="p-10 h-full flex flex-col">
+      <div className="p-4 md:p-10 h-full flex flex-col">
         <div className="page-header flex items-center justify-between flex-shrink-0">
           <h2 className="page-title">Plitice</h2>
           <div className="flex gap-2 items-center">
@@ -800,7 +803,7 @@ export default function Batches() {
           </div>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'32px', flex: 1, alignContent: 'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: isMobile ? '16px' : '32px', flex: 1, alignContent: 'start' }}>
           {[0,1,2,3].map(i => (
             <RegalCard key={i} regals={regals} regalIdx={i} onClick={() => setSelected(i)} />
           ))}
@@ -811,7 +814,7 @@ export default function Batches() {
 
   // ── Shelf view for selected regal ──
   return (
-    <div className="p-10">
+    <div className="p-4 md:p-10">
       <ShelfView
         regals={regals}
         regalIdx={selectedRegal}

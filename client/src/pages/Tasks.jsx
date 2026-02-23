@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { CROP_RECIPES, getCurrentPhase } from '../data/cropData';
 import { fetchRegals } from '../api/growRack';
 import { RefreshIcon } from '../components/Icons';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ─── Task generation from regal/tray data ────────────────────────────────────
 
@@ -217,9 +218,9 @@ function groupByDate(tasks) {
   return { overdue, todayT, tomorrowT, thisWeek, later };
 }
 
-function Section({ title, emoji, tasks, emptyMsg, accent }) {
+function Section({ title, emoji, tasks, emptyMsg, accent, isMobile }) {
   if (tasks.length === 0) return null;
-  const minCol = tasks.length <= 2 ? 360 : tasks.length <= 4 ? 320 : tasks.length <= 8 ? 300 : 280;
+  const minCol = isMobile ? 240 : tasks.length <= 2 ? 360 : tasks.length <= 4 ? 320 : tasks.length <= 8 ? 300 : 280;
   return (
     <div style={{ marginBottom: '40px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'18px' }}>
@@ -266,8 +267,10 @@ export default function Tasks() {
     return () => window.removeEventListener('focus', refresh);
   }, []);
 
+  const isMobile = useIsMobile();
+
   if (loading) return (
-    <div className="p-10">
+    <div className="p-4 md:p-10">
       <div className="page-header">
         <h2 className="page-title">Zadaci</h2>
       </div>
@@ -279,7 +282,7 @@ export default function Tasks() {
 
   if (tasks.length === 0) {
     return (
-      <div className="p-10">
+      <div className="p-4 md:p-10">
         <div className="page-header">
           <h2 className="page-title">Zadaci</h2>
         </div>
@@ -293,7 +296,7 @@ export default function Tasks() {
   }
 
   return (
-    <div className="p-10">
+    <div className="p-4 md:p-10">
       {/* Header */}
       <div className="page-header flex items-center justify-between">
         <div>
@@ -304,11 +307,11 @@ export default function Tasks() {
         </button>
       </div>
 
-      <Section title="Kasno" emoji="🚨" tasks={overdue} accent="#ef4444" />
-      <Section title="Danas" emoji="📍" tasks={todayT} accent="#16a34a" />
-      <Section title="Sutra" emoji="📅" tasks={tomorrowT} accent="#0e7490" />
-      <Section title="Ovaj Tjedan" emoji="📆" tasks={thisWeek} accent="#7c3aed" />
-      <Section title="Kasnije" emoji="🗓" tasks={later} />
+      <Section title="Kasno" emoji="🚨" tasks={overdue} accent="#ef4444" isMobile={isMobile} />
+      <Section title="Danas" emoji="📍" tasks={todayT} accent="#16a34a" isMobile={isMobile} />
+      <Section title="Sutra" emoji="📅" tasks={tomorrowT} accent="#0e7490" isMobile={isMobile} />
+      <Section title="Ovaj Tjedan" emoji="📆" tasks={thisWeek} accent="#7c3aed" isMobile={isMobile} />
+      <Section title="Kasnije" emoji="🗓" tasks={later} isMobile={isMobile} />
     </div>
   );
 }

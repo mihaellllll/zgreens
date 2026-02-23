@@ -24,7 +24,7 @@ export default function Profitability() {
   }));
 
   return (
-    <div className="p-10 h-full flex flex-col">
+    <div className="p-4 md:p-10 h-full flex flex-col">
       <div className="page-header flex-shrink-0">
         <h2 className="page-title">Profitabilnost</h2>
       </div>
@@ -52,6 +52,7 @@ export default function Profitability() {
           </div>
 
           <div className="card overflow-hidden p-0">
+            <div className="overflow-x-auto">
             <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
@@ -86,6 +87,7 @@ export default function Profitability() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

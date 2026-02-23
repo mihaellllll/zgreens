@@ -47,7 +47,7 @@ export default function AIHelper() {
   };
 
   return (
-    <div className="p-10 h-full flex flex-col">
+    <div className="p-4 md:p-10 h-full flex flex-col">
       <div className="page-header">
         <div>
           <h2 className="page-title">AI Asistent</h2>

@@ -120,12 +120,12 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="p-10 h-full flex flex-col">
+    <div className="p-4 md:p-10 h-full flex flex-col">
       <div className="page-header">
         <h2 className="page-title">{greeting()}, {user?.name?.split(' ')[0]}!</h2>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6 md:mb-10">
         <StatCard label="Aktivne Plitice" value={localData.activeBatches} color="green" />
         <StatCard label="Čekajući Zadaci" value={localData.pendingTasks} color="yellow" />
         <StatCard label="Tjedni Prihod" value={`$${Number(apiData?.weeklyRevenue || 0).toFixed(2)}`} color="blue" />

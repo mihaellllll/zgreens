@@ -374,7 +374,7 @@ export default function CropLibrary() {
   const minCol = useAdaptiveGrid(allRecipes.length, gridRef);
 
   return (
-    <div className="p-10 h-full flex flex-col">
+    <div className="p-4 md:p-10 h-full flex flex-col">
       <div className="page-header flex items-center justify-between flex-shrink-0">
         <h2 className="page-title">Knjižnica Usjeva</h2>
         <button onClick={() => setModal('add')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
