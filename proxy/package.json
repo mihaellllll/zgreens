@@ -1,0 +1,6 @@
+{
+  "name": "zgreens-ai-proxy",
+  "version": "1.0.0",
+  "scripts": { "start": "node index.js" },
+  "dependencies": { "express": "^4.18.3", "groq-sdk": "^0.37.0" }
+}

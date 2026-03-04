@@ -30,6 +30,23 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+// PATCH /api/harvests/:id — update yield
+router.patch('/:id', auth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { yieldG } = req.body;
+  try {
+    const existing = await prisma.harvest.findFirst({ where: { id, userId: req.user.id } });
+    if (!existing) return res.status(404).json({ error: 'Berba nije pronađena' });
+    const updated = await prisma.harvest.update({
+      where: { id },
+      data: { yieldG: Number(yieldG) },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE /api/harvests — delete all for current user
 router.delete('/', auth, async (req, res) => {
   try {

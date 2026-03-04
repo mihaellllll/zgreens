@@ -1,263 +1,136 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { CROP_RECIPES, getCurrentPhase } from '../data/cropData';
-import { fetchRegals } from '../api/growRack';
-import { RefreshIcon } from '../components/Icons';
+import { RefreshCw, ClipboardList, Plus, Trash2 } from 'lucide-react';
+import api from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
+import PageWrapper, { LoadingScreen } from '../components/PageWrapper';
+import Modal from '../components/Modal';
+import TaskCard from '../components/TaskCard';
 
-// ─── Task generation from regal/tray data ────────────────────────────────────
+// ── Add Task Form ─────────────────────────────────────────────────────────────
 
-const TASK_META = {
-  seed:     { label: 'Zasadi',                   icon: '🌱', typeColor: '#92400e', typeBg: '#fef3c7' },
-  sprout:   { label: 'Provjeri Nicanje',          icon: '🔍', typeColor: '#0e7490', typeBg: '#ecfeff' },
-  blackout: { label: 'Stavi pod Blackout',        icon: '🌑', typeColor: '#1f2937', typeBg: '#f3f4f6' },
-  light:    { label: 'Premjesti pod Svjetlo',     icon: '☀️',  typeColor: '#b45309', typeBg: '#fefce8' },
-  growing:  { label: 'Provjeri Rast',             icon: '🌿', typeColor: '#047857', typeBg: '#ecfdf5' },
-  ready:    { label: 'Uberi Usjev',               icon: '✂️',  typeColor: '#15803d', typeBg: '#f0fdf4' },
-};
+function AddTaskForm({ onSave, onClose }) {
+  const [title, setTitle]   = useState('');
+  const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes]   = useState('');
+  const [loading, setLoading] = useState(false);
 
-function generateTasks(regals) {
-  if (!regals) return [];
-  const tasks = [];
-
-  regals.forEach((regal, ri) => {
-    if (!Array.isArray(regal)) return;
-    regal.forEach((tray, si) => {
-      if (!tray) return;
-      const crop = CROP_RECIPES.find(c => c.key === tray.cropKey);
-      if (!crop) return;
-
-      const { phase, phaseIdx, daysElapsed } = getCurrentPhase(crop, tray.plantedDate);
-      const shelf    = Math.floor(si / 4) + 1;
-      const trayNum  = (si % 4) + 1;
-
-      const push = (nextIdx, priority) => {
-        if (nextIdx >= crop.phases.length) return;
-        const next = crop.phases[nextIdx];
-        const daysUntil = next.day - daysElapsed;
-        const due = new Date();
-        due.setHours(0, 0, 0, 0);
-        due.setDate(due.getDate() + daysUntil);
-        const meta = TASK_META[next.stage] || TASK_META.growing;
-        tasks.push({
-          id: `${ri}-${si}-${nextIdx}`,
-          priority,          // 'next' | 'later'
-          stage: next.stage,
-          regal: ri + 1,
-          shelf,
-          trayNum,
-          cropKey: tray.cropKey,
-          cropName: crop.name,
-          cropColor: crop.color,
-          phaseLabel: next.label,
-          action: meta.label,
-          icon: meta.icon,
-          typeColor: meta.typeColor,
-          typeBg: meta.typeBg,
-          daysUntil,
-          due,
-        });
-      };
-
-      push(phaseIdx + 1, 'next');
-      push(phaseIdx + 2, 'later');
-    });
-  });
-
-  return tasks.sort((a, b) => a.daysUntil - b.daysUntil || a.regal - b.regal);
-}
-
-// ─── Task Bubble ──────────────────────────────────────────────────────────────
-//
-// Green bubble  = priority 'next'  (immediate next step)
-// Yellow bubble = priority 'later' (step after next)
-// Inner style   = task type (blackout, light, harvest, etc.)
-
-function TaskBubble({ task }) {
-  const isNext  = task.priority === 'next';
-  const [hover, setHover] = useState(false);
-  const navigate = useNavigate();
-
-  const borderColor = isNext  ? '#16a34a' : '#d97706';
-  const bgColor     = isNext  ? '#f0fdf4' : '#fffbeb';
-  const accentColor = isNext  ? '#16a34a' : '#d97706';
-
-  const isOverdue = task.daysUntil < 0;
-  const isToday   = task.daysUntil === 0;
-
-  const slot = (task.shelf - 1) * 4 + (task.trayNum - 1);
-
-  const dueLabel = isOverdue ? `Kasno ${Math.abs(task.daysUntil)}d`
-                 : isToday   ? 'Danas'
-                 : task.daysUntil === 1 ? 'Sutra'
-                 : `Za ${task.daysUntil} dana`;
-
-  const dueLabelColor = isOverdue ? '#ef4444' : isToday ? '#16a34a' : '#6b7280';
-
-  const handleClick = () => {
-    navigate(`/batches?regal=${task.regal}&slot=${slot}`);
+  const submit = async e => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setLoading(true);
+    try {
+      const { data } = await api.post('/tasks', {
+        title: title.trim(),
+        dueDate,
+        type: 'manual',
+      });
+      onSave(data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleClick()}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        borderRadius: '16px',
-        border: `2px solid ${isOverdue ? '#ef4444' : borderColor}`,
-        background: isOverdue ? '#fef2f2' : bgColor,
-        boxShadow: hover
-          ? `0 12px 32px ${isOverdue ? 'rgba(239,68,68,.2)' : isNext ? 'rgba(22,163,74,.18)' : 'rgba(217,119,6,.15)'}, 0 4px 12px rgba(0,0,0,.08)`
-          : '0 2px 8px rgba(0,0,0,.06)',
-        transform: hover ? 'translateY(-4px)' : 'none',
-        transition: 'transform .18s ease, box-shadow .18s ease',
-        overflow: 'hidden',
-        cursor: 'pointer',
-      }}
-    >
-      {/* Top accent bar — shows priority color */}
-      <div style={{
-        height: '5px',
-        background: isOverdue ? '#ef4444' : accentColor,
-      }} />
-
-      {/* Inner content */}
-      <div style={{ padding: '16px 18px 18px' }}>
-        {/* Location row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {[`R${task.regal}`, `P${task.shelf}`, `T${task.trayNum}`].map(l => (
-              <span key={l} style={{
-                fontSize: '11px', fontWeight: 800, padding: '4px 8px', borderRadius: '8px',
-                background: `${task.cropColor}22`, color: task.cropColor,
-                border: `1px solid ${task.cropColor}33`,
-              }}>{l}</span>
-            ))}
-          </div>
-          {/* Priority badge */}
-          <span style={{
-            fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '99px',
-            background: isOverdue ? '#fca5a5' : isNext ? '#bbf7d0' : '#fde68a',
-            color: isOverdue ? '#b91c1c' : isNext ? '#14532d' : '#78350f',
-          }}>
-            {isOverdue ? '!' : isNext ? '→' : '…'}
-          </span>
-        </div>
-
-        {/* Crop name */}
-        <p style={{ margin: '0 0 6px', fontSize: '14px', color: '#6b7280', fontWeight: 600 }}>
-          {task.cropName}
-        </p>
-
-        {/* Task type icon + label */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '12px',
-          padding: '12px 14px', borderRadius: '12px',
-          background: task.typeBg,
-          border: `1px solid ${task.typeColor}22`,
-          marginBottom: '12px',
-        }}>
-          <span style={{ fontSize: '22px', lineHeight: 1 }}>{task.icon}</span>
-          <div>
-            <p style={{ margin: 0, fontWeight: 800, fontSize: '15px', color: task.typeColor }}>{task.action}</p>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: task.typeColor, opacity: 0.7 }}>
-              Dan {task.phaseLabel !== task.action ? task.phaseLabel : '—'}
-            </p>
-          </div>
-        </div>
-
-        {/* Due date */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: dueLabelColor, fontWeight: 700 }}>
-            {dueLabel}
-          </span>
-          <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-            {task.due.toLocaleDateString('hr-HR', { day: '2-digit', month: '2-digit' })}
-          </span>
-        </div>
+    <form onSubmit={submit} className="space-y-4">
+      <div>
+        <label className="form-label">Naziv zadatka *</label>
+        <input
+          required autoFocus
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="input"
+          placeholder="npr. Nazovi restoran Dubravkin Put"
+        />
       </div>
-    </div>
+      <div>
+        <label className="form-label">Datum dospijeća</label>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={e => setDueDate(e.target.value)}
+          className="input"
+        />
+      </div>
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '4px' }}>
+        <button type="button" onClick={onClose} className="btn-secondary">Odustani</button>
+        <button type="submit" disabled={loading || !title.trim()} className="btn-primary">
+          {loading ? 'Spremanje…' : 'Dodaj Zadatak'}
+        </button>
+      </div>
+    </form>
   );
 }
 
-// ─── Tasks legend ─────────────────────────────────────────────────────────────
+// ── Section ───────────────────────────────────────────────────────────────────
 
-function Legend() {
-  return (
-    <div style={{ display:'flex', gap:'20px', flexWrap:'wrap', marginBottom:'32px' }}>
-      {[
-        { color:'#16a34a', bg:'#f0fdf4', border:'#16a34a', label:'Sljedeći korak (zeleno)' },
-        { color:'#d97706', bg:'#fffbeb', border:'#d97706', label:'Korak nakon sljedećeg (žuto)' },
-        { color:'#ef4444', bg:'#fef2f2', border:'#ef4444', label:'Kasno!' },
-      ].map(({ color, bg, border, label }) => (
-        <div key={label} style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-          <div style={{
-            width:'40px', height:'24px', borderRadius:'8px',
-            background:bg, border:`2px solid ${border}`,
-          }} />
-          <span style={{ fontSize:'15px', color:'#6b7280' }}>{label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Main Tasks page ──────────────────────────────────────────────────────────
-
-function groupByDate(tasks) {
-  const overdue   = tasks.filter(t => t.daysUntil < 0);
-  const todayT    = tasks.filter(t => t.daysUntil === 0);
-  const tomorrowT = tasks.filter(t => t.daysUntil === 1);
-  const thisWeek  = tasks.filter(t => t.daysUntil >= 2 && t.daysUntil <= 7);
-  const later     = tasks.filter(t => t.daysUntil > 7);
-
-  return { overdue, todayT, tomorrowT, thisWeek, later };
-}
-
-function Section({ title, emoji, tasks, emptyMsg, accent, isMobile }) {
+function Section({ title, tasks, accent, isMobile, onToggle, onDelete }) {
   if (tasks.length === 0) return null;
-  const minCol = isMobile ? 240 : tasks.length <= 2 ? 360 : tasks.length <= 4 ? 320 : tasks.length <= 8 ? 300 : 280;
+  const minCol = isMobile ? 260 : tasks.length <= 2 ? 340 : tasks.length <= 4 ? 300 : 280;
   return (
-    <div style={{ marginBottom: '40px' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'18px' }}>
-        <span style={{ fontSize:'22px' }}>{emoji}</span>
-        <h3 style={{
-          margin: 0, fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em',
-          color: accent || '#374151',
-        }}>{title}</h3>
-        <div style={{
-          padding:'4px 12px', borderRadius:'99px', fontSize:'13px', fontWeight:700,
-          background: accent ? accent+'18' : '#f3f4f6',
-          color: accent || '#374151',
-        }}>{tasks.length}</div>
+    <div className="gsap-reveal" style={{ marginBottom: '36px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+        <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', color: accent || '#6B6B60' }}>{title}</h3>
+        <span style={{ padding: '2px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: '700', background: accent ? `${accent}14` : '#F0EDE8', color: accent || '#6B6B60' }}>{tasks.length}</span>
       </div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(auto-fill, minmax(${minCol}px, 1fr))`,
-        gap: '18px',
-      }}>
-        {tasks.map(t => <TaskBubble key={t.id} task={t} />)}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minCol}px, 1fr))`, gap: '12px' }}>
+        {tasks.map(t => <TaskCard key={t.id} task={t} onToggle={onToggle} onDelete={onDelete} />)}
       </div>
     </div>
   );
 }
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Tasks() {
-  const [tasks, setTasks]   = useState([]);
+  const [tasks,   setTasks]   = useState([]);
   const [loading, setLoading] = useState(true);
+  const [modal,   setModal]   = useState(false);
+  const isMobile = useIsMobile();
 
   const refresh = async () => {
     try {
-      const regals = await fetchRegals();
-      setTasks(generateTasks(regals));
+      const { data } = await api.get('/tasks');
+      setTasks(data);
     } catch {
       setTasks([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggle = async (taskId, completed) => {
+    try {
+      const { data: updatedTask } = await api.patch(`/tasks/${taskId}`, { completed });
+      // Preserve enriched fields (trayLocations, currentPhase) that PATCH doesn't return
+      setTasks(prev => prev.map(t => t.id === taskId
+        ? { ...updatedTask, trayLocations: t.trayLocations, currentPhase: t.currentPhase }
+        : t
+      ));
+    } catch (err) {
+      console.error('Failed to update task:', err);
+    }
+  };
+
+  const handleDelete = async taskId => {
+    try {
+      await api.delete(`/tasks/${taskId}`);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (err) {
+      console.error('Failed to delete task:', err);
+    }
+  };
+
+  const handleSave = task => {
+    setTasks(prev => [task, ...prev]);
+    setModal(false);
+  };
+
+  const handleClearCompleted = async () => {
+    try {
+      await api.delete('/tasks/completed');
+      setTasks(prev => prev.filter(t => !t.completed));
+    } catch (err) {
+      console.error('Failed to clear completed tasks:', err);
     }
   };
 
@@ -267,51 +140,81 @@ export default function Tasks() {
     return () => window.removeEventListener('focus', refresh);
   }, []);
 
-  const isMobile = useIsMobile();
+  if (loading) return <LoadingScreen />;
 
-  if (loading) return (
-    <div className="p-4 md:p-10">
-      <div className="page-header">
-        <h2 className="page-title">Zadaci</h2>
-      </div>
-      <p className="text-gray-400 text-base">Učitavanje...</p>
-    </div>
-  );
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
 
-  const { overdue, todayT, tomorrowT, thisWeek, later } = groupByDate(tasks);
+  const activeTasks    = tasks.filter(t => !t.completed);
+  const completedTasks = tasks.filter(t => t.completed);
 
-  if (tasks.length === 0) {
-    return (
-      <div className="p-4 md:p-10">
-        <div className="page-header">
-          <h2 className="page-title">Zadaci</h2>
-        </div>
-        <div className="empty-state">
-          <p style={{ fontSize: '48px', lineHeight: 1, marginBottom: '12px' }}>📋</p>
-          <p className="empty-state-text">Nema aktivnih plitice</p>
-          <Link to="/batches" className="btn-primary">Plitice →</Link>
-        </div>
-      </div>
-    );
-  }
+  const overdue  = activeTasks.filter(t => new Date(t.dueDate) < now);
+  // Fix: compare date strings so tasks due "today" aren't missed due to time mismatches
+  const todayT   = activeTasks.filter(t => new Date(t.dueDate).toDateString() === now.toDateString());
+  const upcoming = activeTasks.filter(t => new Date(t.dueDate) > now && new Date(t.dueDate).toDateString() !== now.toDateString());
 
   return (
-    <div className="p-4 md:p-10">
-      {/* Header */}
-      <div className="page-header flex items-center justify-between">
-        <div>
+    <PageWrapper>
+      <div className="gsap-reveal page-header">
+        <div className="page-header-left">
           <h2 className="page-title">Zadaci</h2>
+          <div className="page-subtitle">
+            {activeTasks.length} aktivnih zadataka
+          </div>
         </div>
-        <button onClick={refresh} title="Osvježi" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'40px', height:'40px', borderRadius:'12px', background:'#f3f4f6', border:'1px solid #e5e7eb', cursor:'pointer' }}>
-          <RefreshIcon size={18} color="#6b7280" />
-        </button>
+        <div className="page-header-right">
+          <button onClick={() => setModal(true)} className="btn-primary" style={{ gap: '6px', fontSize: '13px', padding: '9px 14px' }}>
+            <Plus size={15} strokeWidth={1.5} /> Novi Zadatak
+          </button>
+          <button onClick={refresh} className="btn-icon" title="Osvježi">
+            <RefreshCw size={16} strokeWidth={1.5} />
+          </button>
+        </div>
       </div>
 
-      <Section title="Kasno" emoji="🚨" tasks={overdue} accent="#ef4444" isMobile={isMobile} />
-      <Section title="Danas" emoji="📍" tasks={todayT} accent="#16a34a" isMobile={isMobile} />
-      <Section title="Sutra" emoji="📅" tasks={tomorrowT} accent="#0e7490" isMobile={isMobile} />
-      <Section title="Ovaj Tjedan" emoji="📆" tasks={thisWeek} accent="#7c3aed" isMobile={isMobile} />
-      <Section title="Kasnije" emoji="🗓" tasks={later} isMobile={isMobile} />
-    </div>
+      {activeTasks.length === 0 && (
+        <div className="empty-state flex-1">
+          <div style={{ width: 64, height: 64, borderRadius: 28, background: '#EAF0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+            <ClipboardList size={28} color="#4A7A5E" />
+          </div>
+          <p className="empty-state-text">Svi zadaci su dovršeni! Odmaraj dok biljke rastu.</p>
+          <button onClick={() => setModal(true)} className="btn-primary" style={{ marginTop: '8px', gap: '6px' }}>
+            <Plus size={15} /> Novi Zadatak
+          </button>
+        </div>
+      )}
+
+      <Section title="Kasno"     tasks={overdue}       accent="#C94B2A" isMobile={isMobile} onToggle={handleToggle} onDelete={handleDelete} />
+      <Section title="Danas"     tasks={todayT}        accent="#2D5040" isMobile={isMobile} onToggle={handleToggle} onDelete={handleDelete} />
+      <Section title="Predstoji" tasks={upcoming}      accent="#C4914A" isMobile={isMobile} onToggle={handleToggle} onDelete={handleDelete} />
+
+      {completedTasks.length > 0 && (
+        <>
+          <div className="gsap-reveal" style={{ display:'flex', justifyContent:'flex-end', marginBottom:'-20px' }}>
+            <button
+              onClick={handleClearCompleted}
+              style={{
+                display:'flex', alignItems:'center', gap:6,
+                padding:'8px 18px', borderRadius:'99px',
+                background:'#FEF0EC', border:'1px solid rgba(201,75,42,0.2)',
+                color:'#C94B2A', fontSize:'13px', fontWeight:'700',
+                cursor:'pointer', transition:'all 0.15s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#FEE4DA'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#FEF0EC'; }}
+            >
+              <Trash2 size={14} /> Obriši dovršene ({completedTasks.length})
+            </button>
+          </div>
+          <Section title="Dovršeno" tasks={completedTasks} accent="#6B6B60" isMobile={isMobile} onToggle={handleToggle} onDelete={handleDelete} />
+        </>
+      )}
+
+      {modal && (
+        <Modal title="Novi Zadatak" onClose={() => setModal(false)}>
+          <AddTaskForm onSave={handleSave} onClose={() => setModal(false)} />
+        </Modal>
+      )}
+    </PageWrapper>
   );
 }

@@ -1,80 +1,9 @@
 const router = require('express').Router();
 const { PrismaClient } = require('@prisma/client');
 const auth = require('../middleware/auth');
+const { generateTasks } = require('../utils/tasks');
 
 const prisma = new PrismaClient();
-
-const STATUS_ORDER = ['germinating', 'blackout', 'growing', 'harvested', 'failed'];
-
-// Auto-generate tasks when a batch is created or status changes
-async function generateTasks(batch, userId, prisma) {
-  const tasks = [];
-  const sow = new Date(batch.sowDate);
-
-  if (batch.status === 'germinating') {
-    // Blackout task: 2 days after sow
-    const blackoutDate = new Date(sow);
-    blackoutDate.setDate(blackoutDate.getDate() + 2);
-    tasks.push({
-      userId,
-      batchId: batch.id,
-      title: `Move ${batch.cropType?.name || 'batch'} to blackout`,
-      type: 'blackout_remove',
-      dueDate: blackoutDate,
-    });
-    // Daily water tasks for first 7 days
-    for (let d = 1; d <= 3; d++) {
-      const waterDate = new Date(sow);
-      waterDate.setDate(waterDate.getDate() + d);
-      tasks.push({
-        userId,
-        batchId: batch.id,
-        title: `Water ${batch.cropType?.name || 'batch'} (germination)`,
-        type: 'water',
-        dueDate: waterDate,
-      });
-    }
-  }
-
-  if (batch.status === 'blackout') {
-    const blackoutEnd = new Date(sow);
-    blackoutEnd.setDate(blackoutEnd.getDate() + 4);
-    tasks.push({
-      userId,
-      batchId: batch.id,
-      title: `Remove ${batch.cropType?.name || 'batch'} from blackout`,
-      type: 'blackout_remove',
-      dueDate: blackoutEnd,
-    });
-  }
-
-  if (batch.status === 'growing') {
-    // Water every day until harvest
-    const harvestDate = new Date(batch.expectedHarvestDate);
-    const today = new Date();
-    for (let d = new Date(today); d <= harvestDate; d.setDate(d.getDate() + 1)) {
-      tasks.push({
-        userId,
-        batchId: batch.id,
-        title: `Water ${batch.cropType?.name || 'batch'}`,
-        type: 'water',
-        dueDate: new Date(d),
-      });
-    }
-    // Harvest task
-    tasks.push({
-      userId,
-      batchId: batch.id,
-      title: `Harvest ${batch.cropType?.name || 'batch'}`,
-      type: 'harvest',
-      dueDate: harvestDate,
-    });
-  }
-
-  if (tasks.length > 0) {
-    await prisma.task.createMany({ data: tasks });
-  }
-}
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -180,9 +109,13 @@ router.patch('/:id', auth, async (req, res) => {
       include: { cropType: true }
     });
 
-    // Generate tasks when status changes
+    // Generate tasks on status change; delete them when harvested
     if (status && status !== existing.status) {
-      await generateTasks(batch, req.user.id, prisma);
+      if (status === 'harvested') {
+        await prisma.task.deleteMany({ where: { batchId: Number(req.params.id) } });
+      } else {
+        await generateTasks(batch, req.user.id, prisma);
+      }
     }
 
     const fullBatch = await prisma.batch.findUnique({

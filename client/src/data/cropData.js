@@ -1,136 +1,82 @@
-// Recipe data from recepti.txt — all 5 crops used at ZGreens
+// ─── Color palette ────────────────────────────────────────────────────────────
 
-export const CROP_RECIPES = [
-  {
-    key: 'dragoljub',
-    name: 'Dragoljub',
-    nameEn: 'Nasturtium',
-    color: '#f97316',
-    darkColor: '#c2410c',
-    bgLight: '#fff7ed',
-    stemColor: '#86efac',
-    leafColor: '#4ade80',
-    leafShape: 'round', // broad round leaves
-    seedsPerTray: 50,
-    harvestWeight: 6,
-    germinationDays: 7,
-    blackoutDays: 0,
-    lightDays: 7,
-    harvestDay: 14,
-    notes: 'Blackout nije potreban.',
-    phases: [
-      { day: 1,  label: 'Sjetva',           stage: 'seed'    },
-      { day: 6,  label: 'Provjera', stage: 'sprout'  },
-      { day: 8,  label: 'Svijetlo',         stage: 'light'   },
-      { day: 10, label: 'Rast',             stage: 'growing' },
-      { day: 14, label: 'Berba',            stage: 'ready'   },
-    ],
-  },
-  {
-    key: 'brokula',
-    name: 'Brokula',
-    nameEn: 'Broccoli',
-    color: '#16a34a',
-    darkColor: '#14532d',
-    bgLight: '#f0fdf4',
-    stemColor: '#86efac',
-    leafColor: '#22c55e',
-    leafShape: 'oval',
-    seedsPerTray: 20,
-    harvestWeight: 6,
-    germinationDays: 3,
-    blackoutDays: 2,
-    lightDays: 5,
-    harvestDay: 10,
-    notes: '',
-    phases: [
-      { day: 1,  label: 'Sadnja',   stage: 'seed'    },
-      { day: 4,  label: 'Blackout', stage: 'blackout'},
-      { day: 6,  label: 'Svijetlo', stage: 'light'   },
-      { day: 7,  label: 'Rast',     stage: 'growing' },
-      { day: 10, label: 'Berba',    stage: 'ready'   },
-    ],
-  },
-  {
-    key: 'gorusica',
-    name: 'Gorušica',
-    nameEn: 'Mustard',
-    color: '#ca8a04',
-    darkColor: '#713f12',
-    bgLight: '#fefce8',
-    stemColor: '#bef264',
-    leafColor: '#84cc16',
-    leafShape: 'thin', // pointed narrow leaves
-    seedsPerTray: 20,
-    harvestWeight: 6,
-    germinationDays: 3,
-    blackoutDays: 2,
-    lightDays: 5,
-    harvestDay: 10,
-    notes: '',
-    phases: [
-      { day: 1,  label: 'Sadnja',   stage: 'seed'    },
-      { day: 4,  label: 'Blackout', stage: 'blackout'},
-      { day: 6,  label: 'Svijetlo', stage: 'light'   },
-      { day: 7,  label: 'Rast',     stage: 'growing' },
-      { day: 10, label: 'Berba',    stage: 'ready'   },
-    ],
-  },
-  {
-    key: 'rotkvica',
-    name: 'Crvena Rotkvica',
-    nameEn: 'Red Radish',
-    color: '#dc2626',
-    darkColor: '#7f1d1d',
-    bgLight: '#fef2f2',
-    stemColor: '#f87171', // distinctive red stems
-    leafColor: '#22c55e', // green tops
-    leafShape: 'oval',
-    seedsPerTray: 32,
-    harvestWeight: 6,
-    germinationDays: 3,
-    blackoutDays: 2,
-    lightDays: 5,
-    harvestDay: 10,
-    notes: '',
-    phases: [
-      { day: 1,  label: 'Sadnja',   stage: 'seed'    },
-      { day: 4,  label: 'Blackout', stage: 'blackout'},
-      { day: 6,  label: 'Svijetlo', stage: 'light'   },
-      { day: 7,  label: 'Rast',     stage: 'growing' },
-      { day: 10, label: 'Berba',    stage: 'ready'   },
-    ],
-  },
-  {
-    key: 'bosiljak',
-    name: 'Crveni Bosiljak',
-    nameEn: 'Red Basil',
-    color: '#9333ea',
-    darkColor: '#4a044e',
-    bgLight: '#faf5ff',
-    stemColor: '#e879f9',
-    leafColor: '#a855f7', // dark purple leaves
-    leafShape: 'oval',
-    seedsPerTray: 10,
-    harvestWeight: 6,
-    germinationDays: 5,
-    blackoutDays: 2,
-    lightDays: 14,
-    harvestDay: 14,
-    harvestDayMax: 21,
-    notes: 'Berba dan 14-21.',
-    phases: [
-      { day: 1,  label: 'Sadnja',   stage: 'seed'    },
-      { day: 5,  label: 'Blackout', stage: 'blackout'},
-      { day: 7,  label: 'Svijetlo', stage: 'light'   },
-      { day: 8,  label: 'Rast',     stage: 'growing' },
-      { day: 14, label: 'Berba',    stage: 'ready'   },
-    ],
-  },
+export const CROP_COLORS = [
+  { color: '#16a34a', darkColor: '#14532d', bgLight: '#f0fdf4', stemColor: '#86efac', leafColor: '#22c55e', leafShape: 'oval'  },
+  { color: '#dc2626', darkColor: '#7f1d1d', bgLight: '#fef2f2', stemColor: '#f87171', leafColor: '#22c55e', leafShape: 'oval'  },
+  { color: '#9333ea', darkColor: '#4a044e', bgLight: '#faf5ff', stemColor: '#e879f9', leafColor: '#a855f7', leafShape: 'oval'  },
+  { color: '#0891b2', darkColor: '#164e63', bgLight: '#ecfeff', stemColor: '#67e8f9', leafColor: '#06b6d4', leafShape: 'oval'  },
+  { color: '#ca8a04', darkColor: '#713f12', bgLight: '#fefce8', stemColor: '#bef264', leafColor: '#84cc16', leafShape: 'thin'  },
+  { color: '#db2777', darkColor: '#831843', bgLight: '#fdf2f8', stemColor: '#f9a8d4', leafColor: '#ec4899', leafShape: 'round' },
+  { color: '#f97316', darkColor: '#c2410c', bgLight: '#fff7ed', stemColor: '#86efac', leafColor: '#4ade80', leafShape: 'round' },
+  { color: '#059669', darkColor: '#064e3b', bgLight: '#ecfdf5', stemColor: '#6ee7b7', leafColor: '#10b981', leafShape: 'oval'  },
 ];
 
+export function getCropColor(idx) {
+  return CROP_COLORS[((idx ?? 0) % CROP_COLORS.length + CROP_COLORS.length) % CROP_COLORS.length];
+}
+
+// ─── Phase builder ────────────────────────────────────────────────────────────
+
 /**
- * Given a crop recipe and a planting date (ISO string, "day 1"),
+ * Derives a 4-5 phase timeline from growDays.
+ * Day 1: Sjetva (seed)
+ * ~30%: Blackout (if > 1)
+ * ~50%: Svijetlo (if gap exists)
+ * ~75%: Rast (growing)
+ * growDays: Berba (ready)
+ */
+export function buildPhases(growDays) {
+  const phases = [{ day: 1, label: 'Sjetva', stage: 'seed' }];
+  const blackout = Math.round(growDays * 0.3);
+  const light    = Math.round(growDays * 0.5);
+  if (blackout > 1) phases.push({ day: blackout, label: 'Tamna faza', stage: 'blackout' });
+  if (light > blackout) phases.push({ day: light, label: 'Svijetlo', stage: 'light' });
+  const mid = Math.round((light + growDays) / 2);
+  if (mid > light && mid < growDays) phases.push({ day: mid, label: 'Rast', stage: 'growing' });
+  phases.push({ day: growDays, label: 'Berba', stage: 'ready' });
+  return phases;
+}
+
+// ─── API crop → recipe shape ──────────────────────────────────────────────────
+
+/**
+ * Converts a CropType DB object into a recipe shape compatible with
+ * getCurrentPhase, TrayPlantSVG, and all rendering logic.
+ * idx is used to pick the color palette entry (use crop.id for stable colors).
+ */
+export function apiCropToRecipe(crop, idx) {
+  const c = getCropColor(idx ?? crop.id);
+
+  let phases = null;
+  if (crop.customPhases) {
+    try {
+      const parsed = JSON.parse(crop.customPhases);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        phases = parsed; // preserve user's display order
+      }
+    } catch {}
+  }
+  if (!phases) phases = buildPhases(crop.growDays);
+
+  return {
+    key:          `crop-${crop.id}`,
+    name:         crop.name,
+    nameEn:       crop.name,
+    ...c,
+    seedsPerTray:  crop.seedsPerTray  || 0,
+    harvestWeight: crop.harvestWeight || 0,
+    seedCostG:     crop.seedCostG     || 0,
+    harvestDay:    crop.growDays,
+    notes:         crop.notes || '',
+    phases,
+    _apiCrop:      crop,
+  };
+}
+
+// ─── getCurrentPhase ──────────────────────────────────────────────────────────
+
+/**
+ * Given a recipe (from apiCropToRecipe) and a planting date (ISO string "day 1"),
  * returns the current phase, days elapsed, and days until harvest.
  */
 export function getCurrentPhase(crop, plantedDate) {
@@ -141,20 +87,22 @@ export function getCurrentPhase(crop, plantedDate) {
   const planted = new Date(py, pm - 1, pd);
   const daysElapsed = Math.floor((today - planted) / 86400000) + 1;
 
+  // Sort by day for detection — keeps display order intact on the recipe itself
+  const chronological = [...crop.phases].sort((a, b) => Number(a.day) - Number(b.day));
   let phaseIdx = 0;
-  for (let i = 0; i < crop.phases.length; i++) {
-    if (daysElapsed >= crop.phases[i].day) phaseIdx = i;
+  for (let i = 0; i < chronological.length; i++) {
+    if (daysElapsed >= chronological[i].day) phaseIdx = i;
   }
 
-  const harvestDay = crop.harvestDay;
+  const harvestDay       = crop.harvestDay;
   const daysUntilHarvest = harvestDay - daysElapsed;
 
   return {
-    phase: crop.phases[phaseIdx],
+    phase:          chronological[phaseIdx],
     phaseIdx,
     daysElapsed,
     daysUntilHarvest,
     isOverdue: daysElapsed > harvestDay,
-    isToday: daysUntilHarvest === 0,
+    isToday:   daysUntilHarvest === 0,
   };
 }

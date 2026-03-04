@@ -18,9 +18,19 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/', auth, async (req, res) => {
   try {
-    const { name, growDays, difficulty, seedCostG, notes } = req.body;
+    const { name, growDays, difficulty, customPhases, seedCostG, seedsPerTray, harvestWeight, notes } = req.body;
     const crop = await prisma.cropType.create({
-      data: { userId: req.user.id, name, growDays: Number(growDays), difficulty, seedCostG: Number(seedCostG || 0), notes: notes || '' }
+      data: {
+        userId:       req.user.id,
+        name,
+        growDays:     Number(growDays),
+        difficulty:   difficulty || 'easy',
+        customPhases: customPhases || '',
+        seedCostG:    Number(seedCostG    || 0),
+        seedsPerTray: Number(seedsPerTray || 0),
+        harvestWeight:Number(harvestWeight|| 0),
+        notes:        notes || '',
+      }
     });
     res.json(crop);
   } catch (err) {
@@ -30,18 +40,24 @@ router.post('/', auth, async (req, res) => {
 
 router.patch('/:id', auth, async (req, res) => {
   try {
-    const { name, growDays, difficulty, seedCostG, notes } = req.body;
-    const crop = await prisma.cropType.updateMany({
+    const { name, growDays, difficulty, customPhases, seedCostG, seedsPerTray, harvestWeight, notes } = req.body;
+    await prisma.cropType.updateMany({
       where: { id: Number(req.params.id), userId: req.user.id },
       data: {
-        ...(name !== undefined && { name }),
-        ...(growDays !== undefined && { growDays: Number(growDays) }),
-        ...(difficulty !== undefined && { difficulty }),
-        ...(seedCostG !== undefined && { seedCostG: Number(seedCostG) }),
-        ...(notes !== undefined && { notes })
+        ...(name          !== undefined && { name }),
+        ...(growDays      !== undefined && { growDays:      Number(growDays)      }),
+        ...(difficulty    !== undefined && { difficulty }),
+        ...(customPhases  !== undefined && { customPhases }),
+        ...(seedCostG     !== undefined && { seedCostG:     Number(seedCostG)     }),
+        ...(seedsPerTray  !== undefined && { seedsPerTray:  Number(seedsPerTray)  }),
+        ...(harvestWeight !== undefined && { harvestWeight: Number(harvestWeight) }),
+        ...(notes         !== undefined && { notes }),
       }
     });
-    res.json(crop);
+    const updated = await prisma.cropType.findFirst({
+      where: { id: Number(req.params.id), userId: req.user.id },
+    });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -31,7 +31,7 @@ router.post('/', auth, async (req, res) => {
 router.patch('/:id', auth, async (req, res) => {
   try {
     const { name, email, phone, notes } = req.body;
-    const customer = await prisma.customer.updateMany({
+    await prisma.customer.updateMany({
       where: { id: Number(req.params.id), userId: req.user.id },
       data: {
         ...(name !== undefined && { name }),
@@ -40,7 +40,23 @@ router.patch('/:id', auth, async (req, res) => {
         ...(notes !== undefined && { notes }),
       }
     });
-    res.json(customer);
+    const updated = await prisma.customer.findFirst({
+      where: { id: Number(req.params.id), userId: req.user.id },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const existing = await prisma.customer.findFirst({
+      where: { id: Number(req.params.id), userId: req.user.id },
+    });
+    if (!existing) return res.status(404).json({ error: 'Kupac nije pronađen.' });
+    await prisma.customer.delete({ where: { id: existing.id } });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

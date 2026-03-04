@@ -40,7 +40,7 @@ cd server && npx prisma studio  # DB GUI
 - `batches.js` — `generateTasks()` on create/status change; auto-adds seed Cost record
 - `profitability.js` — aggregates Sales (SaleItems) + Harvests + Batch costs; no double-counting
 - `dashboard.js` — weeklyRevenue, lastWeekRevenue, totalCapacity, lowSeeds, upcoming harvests, pendingTaskCount
-- `ai.js` — Groq SDK or AI_PROXY_URL; 503 if neither; `GROQ_API_KEY` in `server/.env`
+- `ai.js` — Groq SDK or AI_PROXY_URL; reads `groqApiKey` from DB first (falls back to `GROQ_API_KEY` env); 503 if neither; auth endpoints: GET /auth/me, PATCH /auth/settings
 - `trays.js` — `POST /:r/:s/plant` atomically upserts tray + deducts seeds; `DELETE /:r/:s` deletes slot + batch tasks
 
 **Client entry points**:
@@ -63,6 +63,7 @@ cd server && npx prisma studio  # DB GUI
 | `/harvests` | Harvests.jsx | /api/harvests |
 | `/ai` | AIHelper.jsx | /api/ai |
 | `/calendar` | Calendar.jsx | /api/tasks, /api/trays |
+| `/settings` | Settings.jsx | /api/auth/me, /api/auth/settings |
 
 ## UI Rules
 - **CSS classes**: `.input`, `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-icon`, `.card`, `.badge-forest`

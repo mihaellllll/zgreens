@@ -1,10 +1,68 @@
 {
   "name": "zgreens",
   "version": "1.0.0",
+  "main": "electron.js",
   "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
-    "install:all": "npm install --prefix server && npm install --prefix client",
-    "db:push": "npm run db:push --prefix server"
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "db:push": "npm run db:push --prefix server",
+    "electron:dev": "cross-env NODE_ENV=development electron .",
+    "electron:build": "npm run build --prefix client && electron-builder --win --x64"
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.zgreens.app",
+    "productName": "ZGreens",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron.js",
+      "server/index.js",
+      "server/middleware/**/*",
+      "server/routes/**/*",
+      "server/utils/**/*",
+      "server/prisma/schema.prisma",
+      "server/prisma/base.db",
+      "server/node_modules/**/*",
+      "client/dist/**/*",
+      "!server/node_modules/.cache/**",
+      "!server/node_modules/nodemon/**",
+      "!server/node_modules/@prisma/engines/schema-engine-windows.exe",
+      "!server/node_modules/prisma/build/**",
+      "!server/node_modules/.prisma/client/*.tmp*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "server/node_modules/.prisma/client/query_engine-windows.dll.node",
+      "server/node_modules/@prisma/engines/query_engine-windows.dll.node",
+      "server/prisma/base.db"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ZGreens"
+    }
   }
 }

@@ -1,332 +1,314 @@
 import { useState, useEffect } from 'react';
+import { Plus, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Modal from '../components/Modal';
-import { CROP_RECIPES } from '../data/cropData';
-import { fetchSeeds, addSeeds } from '../api/growRack';
-import { PlusIcon, XIcon, CheckIcon } from '../components/Icons';
+import { apiCropToRecipe } from '../data/cropData';
+import { fetchSeeds, addSeeds, setSeeds } from '../api/growRack';
+import api from '../api/client';
+import PageWrapper, { LoadingScreen } from '../components/PageWrapper';
+import { Leaf } from 'lucide-react';
 
-// ─── Seed Bag SVG ─────────────────────────────────────────────────────────────
-// Fills from bottom up based on fillPct (0 = empty, 1 = full / 1000g)
-
-function SeedBagSVG({ crop, fillPct }) {
-  const fp = Math.min(Math.max(fillPct, 0), 1);
-  const id = `bag-${crop.key}`;
-
-  // Bag body spans y=48 → y=168 (120px interior)
-  const BAG_TOP = 48;
-  const BAG_BOT = 168;
-  const BAG_H   = BAG_BOT - BAG_TOP;
-  const fillH   = fp * BAG_H;
-  const waveY   = BAG_BOT - fillH;
-
-  // Bag body path (wider at bottom, like a jute sack)
-  const BODY = 'M26,48 L12,156 Q10,168 28,168 L92,168 Q110,168 108,156 L94,48 Q80,40 60,40 Q40,40 26,48 Z';
-  // Neck
-  const NECK = 'M38,20 L40,40 L80,40 L82,20 Q60,13 38,20 Z';
-
-  return (
-    <svg viewBox="0 0 120 185" width="140" height="215" style={{ display: 'block', width: '100%', maxWidth: '140px', height: 'auto', margin: '0 auto' }}>
-      <defs>
-        <clipPath id={`${id}-clip`}>
-          <path d={BODY} />
-        </clipPath>
-        <linearGradient id={`${id}-fabric`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"   stopColor={crop.bgLight} />
-          <stop offset="40%"  stopColor="#fff" />
-          <stop offset="100%" stopColor={crop.bgLight} />
-        </linearGradient>
-      </defs>
-
-      {/* ── Bag body ── */}
-      <path d={BODY} fill={`url(#${id}-fabric)`} stroke={crop.color} strokeWidth="2" />
-
-      {/* Stitching lines on sides */}
-      <path d="M22,60 L10,155" stroke={crop.color} strokeWidth="0.7" strokeDasharray="4 3" opacity="0.35" />
-      <path d="M98,60 L110,155" stroke={crop.color} strokeWidth="0.7" strokeDasharray="4 3" opacity="0.35" />
-
-      {/* ── Fill (clipped to bag body) ── */}
-      {fp > 0 && (
-        <>
-          {/* Fill rectangle from waveY downward */}
-          <rect
-            x="10" y={waveY + 6}
-            width="100" height={BAG_BOT - waveY + 10}
-            fill={crop.color} opacity="0.28"
-            clipPath={`url(#${id}-clip)`}
-          />
-          {/* Wave at top of fill — liquid effect */}
-          <path
-            d={`M10,${waveY} Q35,${waveY - 9} 60,${waveY} Q85,${waveY + 9} 110,${waveY} L110,175 L10,175 Z`}
-            fill={crop.color} opacity="0.38"
-            clipPath={`url(#${id}-clip)`}
-          />
-          {/* Seed dots in the fill */}
-          {fp > 0.15 && Array.from({ length: 6 }, (_, i) => {
-            const dotY = waveY + 15 + (i % 2) * 14;
-            const dotX = 22 + i * 14;
-            if (dotY > BAG_BOT - 10) return null;
-            return (
-              <circle key={i}
-                cx={dotX} cy={dotY} r="3.5"
-                fill={crop.color} opacity="0.5"
-                clipPath={`url(#${id}-clip)`}
-              />
-            );
-          })}
-        </>
-      )}
-
-      {/* ── Empty bag interior (when empty) ── */}
-      {fp === 0 && (
-        <text x="60" y="115" textAnchor="middle" fontSize="11" fill={crop.color} opacity="0.45" fontFamily="system-ui" fontWeight="600">
-          prazno
-        </text>
-      )}
-
-      {/* ── Label band across the middle ── */}
-      <rect x="18" y="90" width="84" height="36" rx="5"
-        fill={crop.color} opacity={fp > 0.45 ? 0.18 : 0.10}
-        stroke={crop.color} strokeWidth="0.8" strokeOpacity="0.4"
-      />
-      {/* Crop initial letter on label */}
-      <text x="60" y="114" textAnchor="middle" fontSize="22" fontWeight="800"
-        fill={crop.color} opacity="0.55" fontFamily="system-ui">
-        {crop.name[0]}
-      </text>
-
-      {/* ── Neck ── */}
-      <path d={NECK} fill={`url(#${id}-fabric)`} stroke={crop.color} strokeWidth="1.8" />
-
-      {/* ── Knot / tie ── */}
-      <ellipse cx="60" cy="17" rx="20" ry="9" fill={crop.color} opacity="0.75" />
-      <ellipse cx="60" cy="14" rx="11" ry="5.5" fill={crop.color} />
-      {/* Knot highlight */}
-      <ellipse cx="57" cy="12" rx="4" ry="2" fill="#fff" opacity="0.25" />
-
-      {/* ── Bottom seam ── */}
-      <path d="M16,158 Q60,164 104,158" stroke={crop.color} strokeWidth="1" strokeDasharray="3 2" opacity="0.30" />
-    </svg>
-  );
-}
-
-// ─── Bag Card ─────────────────────────────────────────────────────────────────
+// ── Bag Card ──────────────────────────────────────────────────────────────────
 
 function BagCard({ crop, amount, onAddClick }) {
-  const MAX_DISPLAY = 1000; // grams for "full" visual
-  const fillPct = amount / MAX_DISPLAY;
-  const seedsPerTray = crop.seedsPerTray;
-  const traysLeft = Math.floor(amount / seedsPerTray);
-  const isLow  = amount > 0 && amount < seedsPerTray * 2;
-  const isEmpty = amount === 0;
+  const [hover, setHover] = useState(false);
+  const seedsPerTray = crop.seedsPerTray || 0;
+  const maxStock  = Math.max(amount, seedsPerTray > 0 ? seedsPerTray * 20 : 100);
+  const traysLeft = seedsPerTray > 0 ? Math.floor(amount / seedsPerTray) : null;
+  const fillPct   = maxStock > 0 ? Math.min((amount / maxStock) * 100, 100) : 0;
+  const lowStock  = seedsPerTray > 0 && amount > 0 && amount < seedsPerTray;
+  const isEmpty   = amount === 0;
 
   return (
-    <div style={{
-      borderRadius: '20px',
-      background: isEmpty ? '#111' : crop.bgLight,
-      border: `2px solid ${isEmpty ? '#333' : crop.color + '44'}`,
-      boxShadow: isEmpty ? 'none' : `0 6px 24px ${crop.color}18`,
-      padding: '20px 16px 16px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-      cursor: 'pointer',
-    }}
+    <div
       onClick={onAddClick}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 12px 32px ${crop.color}28`; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = isEmpty ? 'none' : `0 6px 24px ${crop.color}18`; }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      className="card"
+      style={{
+        cursor: 'pointer',
+        transform: hover ? 'translateY(-4px)' : 'none',
+        boxShadow: hover ? 'var(--shadow-card-hover)' : 'var(--shadow-card)',
+        transition: 'all 0.2s ease',
+        display: 'flex', flexDirection: 'column',
+        padding: 0, overflow: 'hidden',
+      }}
     >
-      {/* Bag visual */}
-      <SeedBagSVG crop={crop} fillPct={fillPct} />
+      {/* Header */}
+      <div style={{ padding: '20px 20px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: 'var(--color-forest-dark)' }}>
+            {crop.name}
+          </h3>
+          {crop.seedsPerTray > 0 && (
+            <p style={{ margin: '2px 0 0', fontSize: '11px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {crop.seedsPerTray}g po plitici
+            </p>
+          )}
+        </div>
+        <div style={{
+          width: '32px', height: '32px', borderRadius: '50%',
+          background: `${crop.color}15`, border: `1px solid ${crop.color}30`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <Plus size={16} style={{ color: crop.color }} />
+        </div>
+      </div>
 
-      {/* Name */}
-      <p style={{ margin: '10px 0 2px', fontWeight: 800, fontSize: '20px', color: isEmpty ? '#6b7280' : '#111827', textAlign: 'center' }}>
-        {crop.name}
-      </p>
-
-      {/* Amount */}
-      <div style={{
-        marginTop: '12px', padding: '8px 18px', borderRadius: '99px',
-        background: isEmpty ? '#1f1f1f' : `${crop.color}18`,
-        border: `1.5px solid ${isEmpty ? '#374151' : crop.color + '44'}`,
-      }}>
-        <p style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: isEmpty ? '#4b5563' : crop.color, textAlign: 'center' }}>
-          {amount}g
+      {/* Large metric */}
+      <div style={{ padding: '0 20px 4px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+          <span style={{ fontSize: '42px', fontWeight: '700', fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--color-forest-dark)', lineHeight: 1 }}>
+            {Number(amount).toFixed(1)}
+          </span>
+          <span style={{ fontSize: '16px', fontWeight: '600', color: 'var(--color-text-muted)' }}>g</span>
+        </div>
+        <p style={{ margin: '4px 0 0', fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          na zalihi
         </p>
       </div>
 
-      {/* Low stock indicator */}
-      {isLow && (
-        <div style={{ marginTop: '8px', width: '10px', height: '10px', borderRadius: '50%', background: '#d97706' }} title="Malo sjemena" />
+      {/* Fill bar */}
+      <div style={{ padding: '16px 20px 12px' }}>
+        <div style={{ height: '6px', borderRadius: '99px', background: 'var(--color-border)' }}>
+          <div style={{ height: '100%', borderRadius: '99px', background: 'var(--color-forest-mid)', width: `${fillPct}%`, transition: 'width 0.4s ease' }} />
+        </div>
+        {seedsPerTray > 0 && (
+          <p style={{ margin: '4px 0 0', fontSize: '10px', textAlign: 'right', color: 'var(--color-text-muted)' }}>
+            / max ~20 plitica
+          </p>
+        )}
+      </div>
+
+      {/* Trays info */}
+      <div style={{ padding: '0 20px' }}>
+        {traysLeft !== null ? (
+          <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--color-forest-mid)' }}>
+            {traysLeft} mogućih plitica
+          </p>
+        ) : (
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>
+            Sjeme po plitici nije postavljeno
+          </p>
+        )}
+      </div>
+
+      {/* Separator + seed per tray */}
+      {seedsPerTray > 0 && (
+        <div style={{ margin: '14px 20px 0', padding: '12px 0 16px', borderTop: '1px solid var(--color-border)' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-sec)' }}>
+            Potrebno po plitici: <strong>{seedsPerTray}g</strong>
+          </p>
+        </div>
       )}
 
-      {/* Add button */}
-      <button
-        onClick={e => { e.stopPropagation(); onAddClick(); }}
-        title="Dodaj sjeme"
-        style={{
-          marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: '44px', height: '44px', borderRadius: '50%',
-          background: crop.color, border: 'none', cursor: 'pointer',
-        }}
-      >
-        <PlusIcon size={22} color="#fff" />
-      </button>
+      {/* Low stock warning */}
+      {(lowStock || isEmpty) && seedsPerTray > 0 && (
+        <div style={{ padding: '10px 20px', borderTop: '1px solid rgba(201,75,42,0.15)', background: 'rgba(201,75,42,0.06)' }}>
+          <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: 'var(--color-clay)' }}>
+            {'\u26A0'} {isEmpty ? 'Nema sjemena na zalihi' : 'Nema dovoljno za jednu pliticu'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Add Seeds Modal ──────────────────────────────────────────────────────────
+// ── Add Seeds Form ────────────────────────────────────────────────────────────
 
-function AddSeedsForm({ crop, currentAmount, onSave, onClose }) {
+function AddSeedsForm({ crop, currentAmount, onSave, onSet, onClose }) {
   const [grams, setGrams] = useState('');
-  const preview = currentAmount + (Number(grams) || 0);
+  const [mode, setMode]   = useState('add');
+  const preview = mode === 'add' ? currentAmount + (Number(grams) || 0) : (Number(grams) || 0);
 
   return (
     <div>
-      {/* Preview bag */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-        <div style={{ textAlign: 'center' }}>
-          <SeedBagSVG crop={crop} fillPct={preview / 1000} />
-          <p style={{ margin: '4px 0 0', fontSize: '13px', fontWeight: 700, color: crop.color }}>
-            {preview}g
-          </p>
-        </div>
+      {/* Mode toggle */}
+      <div style={{ display: 'flex', marginBottom: '16px', borderRadius: '10px', overflow: 'hidden', border: '1.5px solid var(--color-border)' }}>
+        {[{ key: 'add', label: 'Dodaj' }, { key: 'set', label: 'Postavi' }].map(m => (
+          <button key={m.key} type="button" onClick={() => setMode(m.key)}
+            style={{
+              flex: 1, padding: '8px 0', fontSize: '13px', fontWeight: 700,
+              border: 'none', cursor: 'pointer', transition: 'all 0.15s ease',
+              background: mode === m.key ? 'var(--color-forest-mid)' : 'transparent',
+              color: mode === m.key ? '#fff' : 'var(--color-text-sec)',
+            }}>
+            {m.label}
+          </button>
+        ))}
       </div>
 
-      <div className="space-y-4">
+      {/* Summary box */}
+      <div style={{ padding: '20px', borderRadius: '16px', background: `${crop.color}08`, border: `1px solid ${crop.color}18`, marginBottom: '20px', textAlign: 'center' }}>
+        <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '600', color: 'var(--color-forest-mid)' }}>{crop.name}</p>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '42px', fontWeight: '700', fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--color-forest-dark)', lineHeight: 1 }}>
+            {currentAmount}
+          </span>
+          <span style={{ fontSize: '16px', color: 'var(--color-text-muted)' }}>g</span>
+        </div>
+        {grams && Number(grams) > 0 && (
+          <p style={{ margin: '8px 0 0', fontSize: '14px', color: crop.color, fontWeight: '700' }}>
+            {mode === 'add' ? `+ ${grams}g = ` : '\u2192 '}<strong>{preview}g</strong>
+          </p>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Grama za dodati *
-          </label>
-          <div className="flex gap-2">
+          <label className="form-label">{mode === 'add' ? 'Grama za dodati *' : 'Postavi na (grama) *'}</label>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <input
-              autoFocus
-              type="number"
-              min="1"
-              step="1"
-              value={grams}
-              onChange={e => setGrams(e.target.value)}
-              className="input"
-              placeholder="npr. 200"
+              autoFocus type="number" min={mode === 'add' ? '1' : '0'} step="1"
+              value={grams} onChange={e => setGrams(e.target.value)}
+              className="input" placeholder="npr. 200"
             />
-            <span style={{ display: 'flex', alignItems: 'center', fontSize: '13px', color: '#6b7280', whiteSpace: 'nowrap' }}>g</span>
+            <span style={{ color: 'var(--color-text-sec)', fontSize: '13px', flexShrink: 0 }}>g</span>
           </div>
-          {/* Quick buttons */}
           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
             {[50, 100, 200, 500].map(v => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setGrams(String(v))}
+              <button key={v} type="button" onClick={() => setGrams(String(v))}
                 style={{
-                  padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                  border: `1.5px solid ${crop.color}44`, background: Number(grams) === v ? crop.color : `${crop.color}12`,
-                  color: Number(grams) === v ? '#fff' : crop.color, cursor: 'pointer',
-                }}
-              >
+                  padding: '4px 12px', borderRadius: '28px', fontSize: '12px', fontWeight: '700',
+                  border: `1.5px solid ${crop.color}44`,
+                  background: Number(grams) === v ? crop.color : `${crop.color}10`,
+                  color: Number(grams) === v ? '#fff' : crop.color,
+                  cursor: 'pointer', transition: 'all 0.12s ease',
+                }}>
                 {v}g
               </button>
             ))}
           </div>
         </div>
 
-        <div style={{
-          background: `${crop.color}0f`, borderRadius: '10px', padding: '10px 14px',
-          border: `1px solid ${crop.color}22`,
-        }}>
-          <p style={{ margin: 0, fontSize: '11px', color: '#6b7280' }}>
-            Trenutno: <strong>{currentAmount}g</strong>
-            {grams && Number(grams) > 0 && (
-              <> → Nakon dodavanja: <strong style={{ color: crop.color }}>{preview}g</strong></>
-            )}
-          </p>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <X size={14} /> Odustani
+          </button>
+          <button
+            onClick={() => {
+              const val = Number(grams);
+              if (mode === 'add' && val > 0) onSave(val);
+              if (mode === 'set' && val >= 0 && grams !== '') onSet(val);
+            }}
+            disabled={mode === 'add' ? (!grams || Number(grams) <= 0) : grams === ''}
+            className="btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={14} /> {mode === 'add' ? 'Dodaj' : 'Postavi'}
+          </button>
         </div>
-      </div>
-
-      <div className="flex gap-3 justify-end pt-4">
-        <button onClick={onClose} className="btn-secondary" style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-          <XIcon size={16} /> Odustani
-        </button>
-        <button onClick={() => { if (Number(grams) > 0) onSave(Number(grams)); }}
-          disabled={!grams || Number(grams) <= 0}
-          className="btn-primary" style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-          <PlusIcon size={16} color="#fff" /> Dodaj
-        </button>
       </div>
     </div>
   );
 }
 
-// ─── Main Storage page ────────────────────────────────────────────────────────
+// ── Main Storage ──────────────────────────────────────────────────────────────
 
 export default function Storage() {
-  const [amounts, setAmounts] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal]     = useState(null); // crop object | null
+  const [cropTypes, setCropTypes] = useState([]);
+  const [amounts,   setAmounts]   = useState({});
+  const [loading,   setLoading]   = useState(true);
+  const [modal,     setModal]     = useState(null); // null | recipe
 
   useEffect(() => {
-    fetchSeeds()
-      .then(data => setAmounts(data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.get('/crops').catch(() => ({ data: [] })),
+      fetchSeeds().catch(() => ({})),
+    ]).then(([cropsRes, seedData]) => {
+      setCropTypes(cropsRes.data);
+      setAmounts(seedData);
+    }).finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (crop, grams) => {
-    await addSeeds(crop.key, grams);
-    setAmounts(prev => ({ ...prev, [crop.key]: (prev[crop.key] ?? 0) + grams }));
-    setModal(null);
+    try {
+      await addSeeds(crop.name, grams);
+      setAmounts(prev => ({ ...prev, [crop.name]: (prev[crop.name] ?? 0) + grams }));
+      setModal(null);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const totalGrams = CROP_RECIPES.reduce((s, c) => s + (amounts[c.key] || 0), 0);
+  const handleSet = async (crop, grams) => {
+    try {
+      await setSeeds(crop.name, grams);
+      setAmounts(prev => ({ ...prev, [crop.name]: grams }));
+      setModal(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  const count = CROP_RECIPES.length;
-  const minCol = count <= 3 ? 320 : count <= 5 ? 260 : 220;
+  if (loading) return <LoadingScreen />;
 
-  if (loading) return (
-    <div className="p-4 md:p-10">
-      <div className="page-header">
-        <h2 className="page-title">Skladište Sjemena</h2>
+  const recipes = cropTypes.map((c, i) => apiCropToRecipe(c, i));
+  const totalGrams = Object.values(amounts).reduce((s, g) => s + (g || 0), 0);
+
+  // Empty state A — no crops
+  if (cropTypes.length === 0) {
+    return (
+      <PageWrapper>
+      <div className="gsap-reveal page-header">
+        <div className="page-header-left">
+          <h2 className="page-title">Skladište Sjemena</h2>
+          <div className="page-subtitle">Zalihe sjemena</div>
+        </div>
       </div>
-      <p className="text-gray-400 text-base">Učitavanje...</p>
-    </div>
-  );
+        <div className="empty-state flex-1 gsap-reveal">
+          <div style={{ width: 64, height: 64, borderRadius: 28, background: '#EAF0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+            <Leaf size={28} color="#4A7A5E" />
+          </div>
+          <p style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--color-forest-dark)', margin: '0 0 8px' }}>
+            Nema usjeva za praćenje
+          </p>
+          <p className="empty-state-text">Skladište prati sjeme za svaki usjev u vašoj knjižnici.</p>
+          <Link to="/crops" className="btn-primary" style={{ marginTop: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Idi na Knjižnicu usjeva
+          </Link>
+        </div>
+      </PageWrapper>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-10 h-full flex flex-col">
-      {/* Header */}
-      <div className="page-header flex items-center justify-between flex-shrink-0">
-        <h2 className="page-title">Skladište Sjemena</h2>
+    <PageWrapper>
+      <div className="gsap-reveal page-header">
+        <div className="page-header-left">
+          <h2 className="page-title">Skladište Sjemena</h2>
+          <div className="page-subtitle">Ukupno: {Number(totalGrams).toFixed(1)}g na stanju</div>
+        </div>
       </div>
 
-      {/* Bag grid — fills available space */}
-      <div style={{
+      <div className="gsap-reveal" style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(auto-fill, minmax(${minCol}px, 1fr))`,
-        gap: '28px',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        gap: '20px',
         flex: 1,
         alignContent: 'start',
       }}>
-        {CROP_RECIPES.map(crop => (
+        {recipes.map(recipe => (
           <BagCard
-            key={crop.key}
-            crop={crop}
-            amount={amounts[crop.key] || 0}
-            onAddClick={() => setModal(crop)}
+            key={recipe.key}
+            crop={recipe}
+            amount={amounts[recipe.name] || 0}
+            onAddClick={() => setModal(recipe)}
           />
         ))}
       </div>
 
-      {/* Add seeds modal */}
       {modal && (
         <Modal title={`Dodaj Sjeme — ${modal.name}`} onClose={() => setModal(null)}>
           <AddSeedsForm
             crop={modal}
-            currentAmount={amounts[modal.key] || 0}
+            currentAmount={amounts[modal.name] || 0}
             onSave={grams => handleAdd(modal, grams)}
+            onSet={grams => handleSet(modal, grams)}
             onClose={() => setModal(null)}
           />
         </Modal>
       )}
-    </div>
+    </PageWrapper>
   );
 }
